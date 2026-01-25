@@ -29,5 +29,10 @@ pnpm-debug.log*
 *.swp
 *.iml
 
+# Release builds
+releases/
+*.apk
+*.aab
+
 releases/*.apk
 node_modules/
