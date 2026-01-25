@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: xplay
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: xplay_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Admin UI (Optional for dev, usually run via pnpm dev)
+  # web-admin:
+  #   build: ./apps/web-admin
+  #   ports:
+  #     - "3001:80"
+
+volumes:
+  postgres_data:
+

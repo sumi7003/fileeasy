@@ -1,0 +1,5 @@
+packages:
+  - 'apps/*'
+  - '!apps/_deprecated_server'  # 已废弃的NestJS服务器
+  - 'packages/*'
+
