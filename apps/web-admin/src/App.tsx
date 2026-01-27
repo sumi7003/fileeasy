@@ -17,6 +17,8 @@ import TransferStation from './pages/TransferStation';
 
 const { Header, Content, Sider } = Layout;
 
+const transferEnabled = false;
+
 const menuItems = [
   {
     key: 'devices',
@@ -28,11 +30,15 @@ const menuItems = [
     icon: <VideoCameraOutlined />,
     label: <Link to="/media">素材库</Link>,
   },
-  {
-    key: 'transfer',
-    icon: <SwapOutlined />,
-    label: <Link to="/transfer">文件中转</Link>,
-  },
+  ...(transferEnabled
+    ? [
+        {
+          key: 'transfer',
+          icon: <SwapOutlined />,
+          label: <Link to="/transfer">文件中转</Link>,
+        },
+      ]
+    : []),
   {
     key: 'playlists',
     icon: <UnorderedListOutlined />,
@@ -102,7 +108,7 @@ const AppLayout: React.FC = () => {
 
   const selectedKey = useMemo(() => {
     if (location.pathname.startsWith('/media')) return 'media';
-    if (location.pathname.startsWith('/transfer')) return 'transfer';
+    if (transferEnabled && location.pathname.startsWith('/transfer')) return 'transfer';
     if (location.pathname.startsWith('/playlists')) return 'playlists';
     if (location.pathname.startsWith('/settings')) return 'settings';
     return 'devices';
@@ -152,7 +158,7 @@ const AppLayout: React.FC = () => {
             <Routes>
               <Route path="/" element={<DeviceList />} />
               <Route path="/media" element={<MediaLibrary />} />
-              <Route path="/transfer" element={<TransferStation />} />
+              {transferEnabled && <Route path="/transfer" element={<TransferStation />} />}
               <Route path="/playlists" element={<PlaylistManager />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>

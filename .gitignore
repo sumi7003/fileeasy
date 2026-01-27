@@ -36,3 +36,4 @@ releases/
 
 releases/*.apk
 node_modules/
+apps/android-player/.gradle/

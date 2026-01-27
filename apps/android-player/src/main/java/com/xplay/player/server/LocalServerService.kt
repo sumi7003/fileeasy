@@ -77,7 +77,9 @@ class LocalServerService : Service() {
         Log.d(TAG, "Starting LocalServerService...")
         startForegroundService()
         LocalStore.init(this)
-        LocalStore.startTransferMaintenance()
+        if (LocalStore.isTransferEnabled()) {
+            LocalStore.startTransferMaintenance()
+        }
         startServer()
         return START_STICKY
     }
@@ -470,287 +472,289 @@ class LocalServerService : Service() {
                             call.respond(LocalStore.getSystemMonitor())
                         }
 
-                        // ----------------------------
-                        // File Transfer (Admin APIs)
-                        // ----------------------------
-                        post("/api/v1/transfer/upload") {
-                            if (!LocalStore.canAcceptTransferUpload()) {
-                                call.respond(
-                                    HttpStatusCode.Forbidden,
-                                    mapOf("message" to "存储空间不足，已禁止上传")
-                                )
-                                return@post
-                            }
-                            val multipart = call.receiveMultipart()
-                            var uploaded: TransferFileResponse? = null
-                            try {
-                                multipart.forEachPart { part ->
-                                    if (part is PartData.FileItem && part.name == "file") {
-                                    uploaded = LocalStore.saveTransferUpload(
-                                        part = part,
-                                        uploaderIp = LocalStore.getClientIp(call),
-                                        uploaderUserAgent = call.request.header("User-Agent")
-                                    ) { fileId ->
-                                        LocalStore.buildShareUrl(call, fileId)
-                                    }
-                                    }
-                                    part.dispose()
+                        if (LocalStore.isTransferEnabled()) {
+                            // ----------------------------
+                            // File Transfer (Admin APIs)
+                            // ----------------------------
+                            post("/api/v1/transfer/upload") {
+                                if (!LocalStore.canAcceptTransferUpload()) {
+                                    call.respond(
+                                        HttpStatusCode.Forbidden,
+                                        mapOf("message" to "存储空间不足，已禁止上传")
+                                    )
+                                    return@post
                                 }
-                            } catch (e: IllegalArgumentException) {
-                                val msg = e.message ?: "Invalid file"
-                                when (msg) {
-                                    "FILE_TOO_LARGE" -> call.respond(HttpStatusCode.PayloadTooLarge, mapOf("message" to "单文件大小不能超过 2GB"))
-                                    "NAME_TOO_LONG" -> call.respond(HttpStatusCode.BadRequest, mapOf("message" to "文件名长度不能超过 255 字符"))
-                                    else -> call.respond(HttpStatusCode.BadRequest, mapOf("message" to msg))
+                                val multipart = call.receiveMultipart()
+                                var uploaded: TransferFileResponse? = null
+                                try {
+                                    multipart.forEachPart { part ->
+                                        if (part is PartData.FileItem && part.name == "file") {
+                                            uploaded = LocalStore.saveTransferUpload(
+                                                part = part,
+                                                uploaderIp = LocalStore.getClientIp(call),
+                                                uploaderUserAgent = call.request.header("User-Agent")
+                                            ) { fileId ->
+                                                LocalStore.buildShareUrl(call, fileId)
+                                            }
+                                        }
+                                        part.dispose()
+                                    }
+                                } catch (e: IllegalArgumentException) {
+                                    val msg = e.message ?: "Invalid file"
+                                    when (msg) {
+                                        "FILE_TOO_LARGE" -> call.respond(HttpStatusCode.PayloadTooLarge, mapOf("message" to "单文件大小不能超过 2GB"))
+                                        "NAME_TOO_LONG" -> call.respond(HttpStatusCode.BadRequest, mapOf("message" to "文件名长度不能超过 255 字符"))
+                                        else -> call.respond(HttpStatusCode.BadRequest, mapOf("message" to msg))
+                                    }
+                                    return@post
                                 }
-                                return@post
-                            }
-                            if (uploaded == null) {
-                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "File is required"))
-                                return@post
-                            }
-                            call.respond(uploaded!!)
-                        }
-
-                        get("/api/v1/transfer/files") {
-                            val files = LocalStore.listTransferFiles { fileId ->
-                                LocalStore.buildShareUrl(call, fileId)
-                            }
-                            call.respond(files)
-                        }
-
-                        delete("/api/v1/transfer/files/{id}") {
-                            val id = call.parameters["id"]
-                            if (id.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
-                                return@delete
-                            }
-                            val ok = LocalStore.deleteTransferFile(
-                                id = id,
-                                deleterIp = LocalStore.getClientIp(call),
-                                deleterUserAgent = call.request.header("User-Agent")
-                            )
-                            if (!ok) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
-                                return@delete
-                            }
-                            call.respond(mapOf("status" to "ok"))
-                        }
-
-                        get("/api/v1/transfer/files/{id}/share") {
-                            val id = call.parameters["id"]
-                            if (id.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
-                                return@get
-                            }
-                            val exists = LocalStore.getTransferFile(id)
-                            if (exists == null) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
-                                return@get
-                            }
-                            val shareUrl = LocalStore.buildShareUrl(call, id)
-                            call.respond(mapOf("shareUrl" to shareUrl, "qrContent" to shareUrl))
-                        }
-
-                        get("/api/v1/transfer/files/{id}/logs") {
-                            val id = call.parameters["id"]
-                            if (id.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
-                                return@get
-                            }
-                            val logs = LocalStore.getTransferLogs(id)
-                            call.respond(logs)
-                        }
-
-                        get("/api/v1/transfer/storage") {
-                            call.respond(LocalStore.getTransferStorageStatus())
-                        }
-
-                        get("/api/v1/transfer/files/{id}/qr") {
-                            val id = call.parameters["id"]
-                            if (id.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
-                                return@get
-                            }
-                            val file = LocalStore.getTransferFile(id)
-                            if (file == null) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
-                                return@get
-                            }
-                            val shareUrl = LocalStore.buildShareUrl(call, id)
-                            val bitmap = QRCodeUtil.createQRCodeBitmap(
-                                content = shareUrl,
-                                width = 300,
-                                height = 300,
-                                errorCorrection = "M",
-                                margin = "2"
-                            )
-                            if (bitmap == null) {
-                                call.respond(HttpStatusCode.InternalServerError, mapOf("message" to "Failed to generate QR code"))
-                                return@get
-                            }
-                            val baos = ByteArrayOutputStream()
-                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, baos)
-                            val bytes = baos.toByteArray()
-                            call.response.header(HttpHeaders.ContentType, "image/png")
-                            call.response.header(
-                                HttpHeaders.ContentDisposition,
-                                ContentDisposition.Attachment.withParameter(
-                                    ContentDisposition.Parameters.FileName,
-                                    "transfer-$id.png"
-                                ).toString()
-                            )
-                            call.respondBytes(bytes, ContentType.Image.PNG)
-                        }
-
-                        // ----------------------------
-                        // File Transfer (Share/Download)
-                        // ----------------------------
-                        get("/t/{fileId}") {
-                            val fileId = call.parameters["fileId"]
-                            if (fileId.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.NotFound)
-                                return@get
-                            }
-                            call.respondText(LocalStore.renderTransferSharePage(fileId), ContentType.Text.Html)
-                        }
-
-                        post("/t/{fileId}/auth") {
-                            val fileId = call.parameters["fileId"]
-                            if (fileId.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.NotFound)
-                                return@post
-                            }
-                            val req = call.receive<TransferAuthRequest>()
-                            val ip = LocalStore.getClientIp(call)
-                            val ua = call.request.header("User-Agent")
-
-                            val file = LocalStore.getTransferFile(fileId)
-                            if (file == null) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
-                                return@post
-                            }
-                            if (LocalStore.isTransferExpired(file)) {
-                                call.respond(HttpStatusCode.Gone, mapOf("message" to "文件已过期"))
-                                return@post
+                                if (uploaded == null) {
+                                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "File is required"))
+                                    return@post
+                                }
+                                call.respond(uploaded!!)
                             }
 
-                            val ok = LocalStore.verifyTransferDownloadAccount(req.username, req.password)
-                            LocalStore.logTransferAction(
-                                fileId = fileId,
-                                action = "AUTH",
-                                ip = ip,
-                                userAgent = ua,
-                                authResult = ok,
-                                clientRemark = null,
-                                result = if (ok) "Success" else "Invalid credentials"
-                            )
-                            if (!ok) {
-                                call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "账号或密码错误"))
-                                return@post
+                            get("/api/v1/transfer/files") {
+                                val files = LocalStore.listTransferFiles { fileId ->
+                                    LocalStore.buildShareUrl(call, fileId)
+                                }
+                                call.respond(files)
                             }
 
-                            val token = LocalStore.issueTransferToken(fileId = fileId, ip = ip ?: "unknown")
-                            // non-httpOnly: front page uses fetch; cookie also works for download
-                            call.response.cookies.append(
-                                name = "xplay_transfer_token",
-                                value = token,
-                                path = "/t",
-                                maxAge = 3600L
-                            )
-                            call.respond(TransferAuthResponse(token = token))
-                        }
-
-                        get("/t/{fileId}/info") {
-                            val fileId = call.parameters["fileId"]
-                            if (fileId.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.NotFound)
-                                return@get
-                            }
-                            val file = LocalStore.getTransferFile(fileId)
-                            if (file == null) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
-                                return@get
-                            }
-                            if (LocalStore.isTransferExpired(file)) {
-                                call.respond(HttpStatusCode.Gone, mapOf("message" to "文件已过期"))
-                                return@get
-                            }
-                            val ip = LocalStore.getClientIp(call)
-                            val token = call.request.cookies["xplay_transfer_token"]
-                            if (!LocalStore.verifyTransferToken(token = token, fileId = fileId, ip = ip ?: "unknown")) {
-                                call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "未授权"))
-                                return@get
-                            }
-
-                            val quota = LocalStore.getTransferIpQuota(ip ?: "unknown")
-                            call.respond(
-                                mapOf(
-                                    "file" to LocalStore.toTransferFileResponse(file) { id -> LocalStore.buildShareUrl(call, id) },
-                                    "quotaUsed" to quota.first,
-                                    "quotaRemaining" to quota.second
+                            delete("/api/v1/transfer/files/{id}") {
+                                val id = call.parameters["id"]
+                                if (id.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                    return@delete
+                                }
+                                val ok = LocalStore.deleteTransferFile(
+                                    id = id,
+                                    deleterIp = LocalStore.getClientIp(call),
+                                    deleterUserAgent = call.request.header("User-Agent")
                                 )
-                            )
-                        }
-
-                        get("/t/{fileId}/download") {
-                            val fileId = call.parameters["fileId"]
-                            if (fileId.isNullOrBlank()) {
-                                call.respond(HttpStatusCode.NotFound)
-                                return@get
-                            }
-                            val file = LocalStore.getTransferFile(fileId)
-                            if (file == null) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
-                                return@get
-                            }
-                            if (LocalStore.isTransferExpired(file)) {
-                                call.respond(HttpStatusCode.Gone, mapOf("message" to "文件已过期"))
-                                return@get
+                                if (!ok) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                    return@delete
+                                }
+                                call.respond(mapOf("status" to "ok"))
                             }
 
-                            val ip = LocalStore.getClientIp(call)
-                            val ua = call.request.header("User-Agent")
-                            val remark = call.request.queryParameters["remark"]
-                            val token = call.request.cookies["xplay_transfer_token"]
-                            if (!LocalStore.verifyTransferToken(token = token, fileId = fileId, ip = ip ?: "unknown")) {
+                            get("/api/v1/transfer/files/{id}/share") {
+                                val id = call.parameters["id"]
+                                if (id.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                    return@get
+                                }
+                                val exists = LocalStore.getTransferFile(id)
+                                if (exists == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                    return@get
+                                }
+                                val shareUrl = LocalStore.buildShareUrl(call, id)
+                                call.respond(mapOf("shareUrl" to shareUrl, "qrContent" to shareUrl))
+                            }
+
+                            get("/api/v1/transfer/files/{id}/logs") {
+                                val id = call.parameters["id"]
+                                if (id.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                    return@get
+                                }
+                                val logs = LocalStore.getTransferLogs(id)
+                                call.respond(logs)
+                            }
+
+                            get("/api/v1/transfer/storage") {
+                                call.respond(LocalStore.getTransferStorageStatus())
+                            }
+
+                            get("/api/v1/transfer/files/{id}/qr") {
+                                val id = call.parameters["id"]
+                                if (id.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                    return@get
+                                }
+                                val file = LocalStore.getTransferFile(id)
+                                if (file == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                    return@get
+                                }
+                                val shareUrl = LocalStore.buildShareUrl(call, id)
+                                val bitmap = QRCodeUtil.createQRCodeBitmap(
+                                    content = shareUrl,
+                                    width = 300,
+                                    height = 300,
+                                    errorCorrection = "M",
+                                    margin = "2"
+                                )
+                                if (bitmap == null) {
+                                    call.respond(HttpStatusCode.InternalServerError, mapOf("message" to "Failed to generate QR code"))
+                                    return@get
+                                }
+                                val baos = ByteArrayOutputStream()
+                                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, baos)
+                                val bytes = baos.toByteArray()
+                                call.response.header(HttpHeaders.ContentType, "image/png")
+                                call.response.header(
+                                    HttpHeaders.ContentDisposition,
+                                    ContentDisposition.Attachment.withParameter(
+                                        ContentDisposition.Parameters.FileName,
+                                        "transfer-$id.png"
+                                    ).toString()
+                                )
+                                call.respondBytes(bytes, ContentType.Image.PNG)
+                            }
+
+                            // ----------------------------
+                            // File Transfer (Share/Download)
+                            // ----------------------------
+                            get("/t/{fileId}") {
+                                val fileId = call.parameters["fileId"]
+                                if (fileId.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.NotFound)
+                                    return@get
+                                }
+                                call.respondText(LocalStore.renderTransferSharePage(fileId), ContentType.Text.Html)
+                            }
+
+                            post("/t/{fileId}/auth") {
+                                val fileId = call.parameters["fileId"]
+                                if (fileId.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.NotFound)
+                                    return@post
+                                }
+                                val req = call.receive<TransferAuthRequest>()
+                                val ip = LocalStore.getClientIp(call)
+                                val ua = call.request.header("User-Agent")
+
+                                val file = LocalStore.getTransferFile(fileId)
+                                if (file == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
+                                    return@post
+                                }
+                                if (LocalStore.isTransferExpired(file)) {
+                                    call.respond(HttpStatusCode.Gone, mapOf("message" to "文件已过期"))
+                                    return@post
+                                }
+
+                                val ok = LocalStore.verifyTransferDownloadAccount(req.username, req.password)
                                 LocalStore.logTransferAction(
                                     fileId = fileId,
-                                    action = "DOWNLOAD",
+                                    action = "AUTH",
                                     ip = ip,
                                     userAgent = ua,
-                                    authResult = false,
-                                    clientRemark = remark,
-                                    result = "Unauthorized"
+                                    authResult = ok,
+                                    clientRemark = null,
+                                    result = if (ok) "Success" else "Invalid credentials"
                                 )
-                                call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "请先输入账号密码"))
-                                return@get
+                                if (!ok) {
+                                    call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "账号或密码错误"))
+                                    return@post
+                                }
+
+                                val token = LocalStore.issueTransferToken(fileId = fileId, ip = ip ?: "unknown")
+                                // non-httpOnly: front page uses fetch; cookie also works for download
+                                call.response.cookies.append(
+                                    name = "xplay_transfer_token",
+                                    value = token,
+                                    path = "/t",
+                                    maxAge = 3600L
+                                )
+                                call.respond(TransferAuthResponse(token = token))
                             }
 
-                            val quotaOk = LocalStore.tryConsumeTransferQuota(ip ?: "unknown")
-                            if (!quotaOk) {
+                            get("/t/{fileId}/info") {
+                                val fileId = call.parameters["fileId"]
+                                if (fileId.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.NotFound)
+                                    return@get
+                                }
+                                val file = LocalStore.getTransferFile(fileId)
+                                if (file == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
+                                    return@get
+                                }
+                                if (LocalStore.isTransferExpired(file)) {
+                                    call.respond(HttpStatusCode.Gone, mapOf("message" to "文件已过期"))
+                                    return@get
+                                }
+                                val ip = LocalStore.getClientIp(call)
+                                val token = call.request.cookies["xplay_transfer_token"]
+                                if (!LocalStore.verifyTransferToken(token = token, fileId = fileId, ip = ip ?: "unknown")) {
+                                    call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "未授权"))
+                                    return@get
+                                }
+
+                                val quota = LocalStore.getTransferIpQuota(ip ?: "unknown")
                                 call.respond(
-                                    HttpStatusCode.TooManyRequests,
-                                    mapOf("message" to "您今日下载次数已达上限（100次），请明天再试")
+                                    mapOf(
+                                        "file" to LocalStore.toTransferFileResponse(file) { id -> LocalStore.buildShareUrl(call, id) },
+                                        "quotaUsed" to quota.first,
+                                        "quotaRemaining" to quota.second
+                                    )
                                 )
-                                return@get
                             }
 
-                            val diskFile = LocalStore.getTransferDiskFile(file)
-                            if (!diskFile.exists()) {
-                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
-                                return@get
-                            }
+                            get("/t/{fileId}/download") {
+                                val fileId = call.parameters["fileId"]
+                                if (fileId.isNullOrBlank()) {
+                                    call.respond(HttpStatusCode.NotFound)
+                                    return@get
+                                }
+                                val file = LocalStore.getTransferFile(fileId)
+                                if (file == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
+                                    return@get
+                                }
+                                if (LocalStore.isTransferExpired(file)) {
+                                    call.respond(HttpStatusCode.Gone, mapOf("message" to "文件已过期"))
+                                    return@get
+                                }
 
-                            LocalStore.onTransferDownloaded(fileId = fileId, ip = ip, userAgent = ua, remark = remark)
-                            call.response.headers.append(
-                                HttpHeaders.ContentDisposition,
-                                ContentDisposition.Attachment.withParameter(
-                                    ContentDisposition.Parameters.FileName,
-                                    file.originalName
-                                ).toString()
-                            )
-                            call.respondFile(diskFile)
+                                val ip = LocalStore.getClientIp(call)
+                                val ua = call.request.header("User-Agent")
+                                val remark = call.request.queryParameters["remark"]
+                                val token = call.request.cookies["xplay_transfer_token"]
+                                if (!LocalStore.verifyTransferToken(token = token, fileId = fileId, ip = ip ?: "unknown")) {
+                                    LocalStore.logTransferAction(
+                                        fileId = fileId,
+                                        action = "DOWNLOAD",
+                                        ip = ip,
+                                        userAgent = ua,
+                                        authResult = false,
+                                        clientRemark = remark,
+                                        result = "Unauthorized"
+                                    )
+                                    call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "请先输入账号密码"))
+                                    return@get
+                                }
+
+                                val quotaOk = LocalStore.tryConsumeTransferQuota(ip ?: "unknown")
+                                if (!quotaOk) {
+                                    call.respond(
+                                        HttpStatusCode.TooManyRequests,
+                                        mapOf("message" to "您今日下载次数已达上限（100次），请明天再试")
+                                    )
+                                    return@get
+                                }
+
+                                val diskFile = LocalStore.getTransferDiskFile(file)
+                                if (!diskFile.exists()) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "文件不存在"))
+                                    return@get
+                                }
+
+                                LocalStore.onTransferDownloaded(fileId = fileId, ip = ip, userAgent = ua, remark = remark)
+                                call.response.headers.append(
+                                    HttpHeaders.ContentDisposition,
+                                    ContentDisposition.Attachment.withParameter(
+                                        ContentDisposition.Parameters.FileName,
+                                        file.originalName
+                                    ).toString()
+                                )
+                                call.respondFile(diskFile)
+                            }
                         }
 
                         get("{path...}") {
@@ -865,6 +869,11 @@ object LocalStore {
     private data class TransferToken(val fileId: String, val ip: String, val expiresAt: Long)
     private val transferTokens = ConcurrentHashMap<String, TransferToken>()
     private val transferMaintenanceStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun isTransferEnabled(): Boolean {
+        // 默认关闭，避免影响旧版本稳定性
+        return false
+    }
 
     fun startTransferMaintenance() {
         if (!transferMaintenanceStarted.compareAndSet(false, true)) return
