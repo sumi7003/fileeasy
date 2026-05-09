@@ -1286,8 +1286,20 @@ object LocalStore {
     }
 
     private fun getUploadDir(): File {
-        val externalDocumentsDir = appContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-        val root = File(externalDocumentsDir ?: File(appContext.filesDir, "documents"), "FileEasy")
+        val publicPicturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+        val publicRoot = publicPicturesDir.parentFile ?: Environment.getExternalStorageDirectory()
+        val root = File(publicRoot, "易传输")
+        if (!root.exists() && !root.mkdirs()) {
+            val fallbackRoot = File(
+                appContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+                    ?: File(appContext.filesDir, "documents"),
+                "易传输"
+            )
+            if (!fallbackRoot.exists()) {
+                fallbackRoot.mkdirs()
+            }
+            return fallbackRoot
+        }
         if (!root.exists()) {
             root.mkdirs()
         }
@@ -1470,24 +1482,53 @@ object LocalStore {
     suspend fun listActiveUploadSessions(limit: Int = 4): List<HomeUploadTaskResponse> {
         val now = System.currentTimeMillis()
         return db().uploadSessionDao().getActiveSessions(now, limit).map { session ->
-            val progress = if (session.totalChunks <= 0) {
+            buildHomeUploadTask(session)
+        }
+    }
+
+    suspend fun listUploadQueueSessions(limit: Int = 24): List<HomeUploadTaskResponse> {
+        val now = System.currentTimeMillis()
+        return db().uploadSessionDao().getRecentQueueSessions(now, limit).map { session ->
+            buildHomeUploadTask(session)
+        }
+    }
+
+    private fun buildHomeUploadTask(session: UploadSessionEntity): HomeUploadTaskResponse {
+        val normalizedStatus = normalizeHomeUploadStatus(session.status, session.uploadedChunks, session.totalChunks)
+        val progress = when (normalizedStatus) {
+            "completed" -> 100
+            else -> if (session.totalChunks <= 0) {
                 0
             } else {
-                ((session.uploadedChunks.toDouble() / session.totalChunks.toDouble()) * 100.0).toInt().coerceIn(0, 99)
+                ((session.uploadedChunks.toDouble() / session.totalChunks.toDouble()) * 100.0).toInt()
+                    .coerceIn(0, 99)
             }
-            val uploadedBytes = (session.uploadedChunks.toLong() * session.chunkSize).coerceAtMost(session.fileSize)
-            HomeUploadTaskResponse(
-                uploadId = session.uploadId,
-                fileName = session.finalDisplayName ?: session.fileName,
-                uploadedChunks = session.uploadedChunks,
-                totalChunks = session.totalChunks,
-                status = session.status,
-                progress = progress,
-                fileSize = session.fileSize,
-                uploadedBytes = uploadedBytes,
-                createdAt = session.createdAt,
-                updatedAt = session.updatedAt
-            )
+        }
+        val uploadedBytes = when (normalizedStatus) {
+            "completed" -> session.fileSize
+            else -> (session.uploadedChunks.toLong() * session.chunkSize).coerceAtMost(session.fileSize)
+        }
+        return HomeUploadTaskResponse(
+            uploadId = session.uploadId,
+            fileName = session.finalDisplayName ?: session.fileName,
+            uploadedChunks = session.uploadedChunks,
+            totalChunks = session.totalChunks,
+            status = normalizedStatus,
+            progress = progress,
+            fileSize = session.fileSize,
+            uploadedBytes = uploadedBytes,
+            createdAt = session.createdAt,
+            updatedAt = session.updatedAt
+        )
+    }
+
+    private fun normalizeHomeUploadStatus(status: String, uploadedChunks: Int, totalChunks: Int): String {
+        return when {
+            status == "completed" -> "completed"
+            status == "initialized" -> "queued"
+            status == "ready" && uploadedChunks >= totalChunks -> "receiving"
+            status == "uploading" -> "receiving"
+            else -> "receiving"
         }
     }
 
@@ -1508,7 +1549,7 @@ object LocalStore {
         return HomeSummaryResponse(
             uploadUrl = uploadUrlBuilder(),
             passwordRequired = isPasswordConfigured(),
-            activeUploads = listActiveUploadSessions(),
+            activeUploads = listUploadQueueSessions(),
             recentFiles = listRecentManagedFiles()
         )
     }
@@ -1517,7 +1558,7 @@ object LocalStore {
         return db().uploadSessionDao().getActiveSessions(System.currentTimeMillis(), 1).isNotEmpty()
     }
 
-    fun getFileEasyFolderHint(): String = "文件/FileEasy"
+    fun getFileEasyFolderHint(): String = "内部存储/易传输"
 
     fun getFileEasyFolderCategoriesHint(): String = "文档 / 图片 / 视频 / 音频 / 压缩包"
 

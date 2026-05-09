@@ -12,7 +12,9 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.Settings
 import android.util.Log
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -97,6 +99,7 @@ private val XplayBrandColor = Color(0xFF1677FF)
 private val XplayBrandColorDark = Color(0xFF003EB3)
 private val FileEasyBrandColor = Color(0xFF1F8A57)
 private val FileEasyBrandColorDark = Color(0xFF0F5C38)
+private const val FILE_EASY_ROOT_FOLDER = "易传输"
 class MainActivity : ComponentActivity() {
     private lateinit var repository: DeviceRepository
     var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -228,6 +231,9 @@ class MainActivity : ComponentActivity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1002)
         }
+        if (ProductFlavorConfig.isFileEasy) {
+            ensureFileEasyStoragePermission()
+        }
         
         setContent {
             MaterialTheme {
@@ -289,6 +295,28 @@ class MainActivity : ComponentActivity() {
 
 }
 
+private fun Context.ensureFileEasyStoragePermission() {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R ||
+        Environment.isExternalStorageManager()
+    ) {
+        return
+    }
+
+    val appSpecificIntent = Intent(
+        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+        Uri.parse("package:$packageName")
+    ).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val fallbackIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    runCatching { startActivity(appSpecificIntent) }
+        .recoverCatching { startActivity(fallbackIntent) }
+        .onFailure { Log.w("MainActivity", "Failed to open all-files access settings", it) }
+}
+
 private fun startLocalServer(context: Context) {
     val intent = Intent(context, LocalServerService::class.java)
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -299,7 +327,7 @@ private fun startLocalServer(context: Context) {
 }
 
 private fun openFileEasyFolder(context: Context, relativeDirectory: String? = null) {
-    val basePath = "Android/data/${context.packageName}/files/Documents/FileEasy"
+    val basePath = FILE_EASY_ROOT_FOLDER
     val normalizedDirectory = relativeDirectory
         ?.trim()
         ?.removePrefix("/")
@@ -560,7 +588,7 @@ fun FileEasyShellScreen() {
     val serviceState by LocalServerService.runtimeState.collectAsState()
     var lanAccessInfo by remember { mutableStateOf(LanAddressResolver.resolve(context)) }
     var qrCodeBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var activeUploads by remember { mutableStateOf<List<HomeUploadTaskResponse>>(emptyList()) }
+    var uploadQueue by remember { mutableStateOf<List<HomeUploadTaskResponse>>(emptyList()) }
     var recentFiles by remember { mutableStateOf<List<HomeRecentFileResponse>>(emptyList()) }
     var totalStorageBytes by remember { mutableStateOf(0L) }
     var freeStorageBytes by remember { mutableStateOf(0L) }
@@ -574,8 +602,12 @@ fun FileEasyShellScreen() {
     val latestReceiveDirectory = recentFiles.firstOrNull()?.relativeDirectory
     val networkNameLabel = lanAccessInfo.networkName ?: "等待网络"
     val preciseWifiName = lanAccessInfo.networkName?.takeUnless { it == "Wi-Fi" || it.isBlank() }
+    val completedUploads = uploadQueue.filter { it.status == "completed" }
+    val receivingUploads = uploadQueue.filter { it.status == "receiving" }
+    val queuedUploads = uploadQueue.filter { it.status == "queued" }
+    val pendingUploads = uploadQueue.filter { it.status != "completed" }
     val homeState = when {
-        activeUploads.isNotEmpty() -> "receiving"
+        pendingUploads.isNotEmpty() -> "receiving"
         recentFiles.isNotEmpty() && !preferWaitingAfterCompletion -> "completed"
         else -> "waiting"
     }
@@ -604,7 +636,7 @@ fun FileEasyShellScreen() {
     val refreshHomePanel = remember(context, scope) {
         {
             scope.launch(Dispatchers.IO) {
-                val uploads = runCatching { LocalStore.listActiveUploadSessions(limit = 3) }
+                val uploads = runCatching { LocalStore.listUploadQueueSessions(limit = 24) }
                     .getOrElse { emptyList() }
                 val files = runCatching { LocalStore.listRecentManagedFiles(limit = 6) }
                     .getOrElse { emptyList() }
@@ -613,7 +645,7 @@ fun FileEasyShellScreen() {
                 val free = stat?.let { it.blockSizeLong * it.availableBlocksLong } ?: 0L
 
                 launch(Dispatchers.Main) {
-                    activeUploads = uploads
+                    uploadQueue = uploads
                     recentFiles = files
                     totalStorageBytes = total
                     freeStorageBytes = free
@@ -627,8 +659,8 @@ fun FileEasyShellScreen() {
         refreshHomePanel()
     }
 
-    LaunchedEffect(activeUploads) {
-        if (activeUploads.isNotEmpty()) {
+    LaunchedEffect(pendingUploads) {
+        if (pendingUploads.isNotEmpty()) {
             preferWaitingAfterCompletion = false
         }
     }
@@ -706,6 +738,26 @@ fun FileEasyShellScreen() {
         usedStorageBytes.toFloat() / totalStorageBytes.toFloat()
     } else {
         0f
+    }
+    val totalUploadBytes = uploadQueue.sumOf { it.fileSize }
+    val uploadedBytes = uploadQueue.sumOf { it.uploadedBytes }.coerceAtMost(totalUploadBytes)
+    val totalUploadProgress = if (totalUploadBytes > 0L) {
+        (uploadedBytes.toFloat() / totalUploadBytes.toFloat()).coerceIn(0f, 0.99f)
+    } else {
+        0f
+    }
+    val remainingUploadBytes = (totalUploadBytes - uploadedBytes).coerceAtLeast(0L)
+    val earliestUploadCreatedAt = uploadQueue.minOfOrNull { it.createdAt } ?: System.currentTimeMillis()
+    val uploadElapsedMs = (System.currentTimeMillis() - earliestUploadCreatedAt).coerceAtLeast(1L)
+    val uploadBytesPerSecond = if (uploadedBytes > 0L) {
+        (uploadedBytes.toDouble() * 1000.0) / uploadElapsedMs.toDouble()
+    } else {
+        0.0
+    }
+    val estimatedRemainingMs = if (uploadBytesPerSecond >= 32 * 1024) {
+        ((remainingUploadBytes.toDouble() / uploadBytesPerSecond) * 1000.0).toLong().coerceAtLeast(1000L)
+    } else {
+        null
     }
 
     BoxWithConstraints(
@@ -828,7 +880,7 @@ fun FileEasyShellScreen() {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
                                             Text(
                                                 text = homeStateTitle,
@@ -842,19 +894,55 @@ fun FileEasyShellScreen() {
                                                 textAlign = TextAlign.Center
                                             )
                                             FileEasyStateBadge(homeState = homeState, label = homeStateTitle)
-                                            Text(
-                                                text = homeStateDescription,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = Color(0xFF8C867F),
-                                                textAlign = TextAlign.Center
-                                            )
                                         }
-                                        FileEasyPanelSection(
-                                            title = "正在接收",
-                                            countLabel = "${activeUploads.size} 个任务"
-                                        ) {
-                                            activeUploads.forEach { task ->
-                                                FileEasyUploadOverviewCard(task = task)
+                                        FileEasyReceivingSummaryCard(
+                                            progress = totalUploadProgress,
+                                            progressLabel = "${(totalUploadProgress * 100).toInt().coerceIn(0, 100)}%",
+                                            remainingLabel = estimatedRemainingMs?.let(::formatRemainingDuration) ?: "计算中",
+                                            speedLabel = formatTransferRate(uploadBytesPerSecond),
+                                            fileCountLabel = "${uploadQueue.size} 个任务",
+                                            uploadedLabel = formatStorageValue(uploadedBytes),
+                                            totalLabel = formatStorageValue(totalUploadBytes),
+                                            totalCount = uploadQueue.size,
+                                            completedCount = completedUploads.size,
+                                            receivingCount = receivingUploads.size,
+                                            queuedCount = queuedUploads.size
+                                        )
+                                        if (receivingUploads.isNotEmpty()) {
+                                            FileEasyPanelSection(
+                                                title = "正在接收",
+                                                countLabel = "${receivingUploads.size} 个任务"
+                                            ) {
+                                                receivingUploads.forEach { task ->
+                                                    FileEasyUploadOverviewCard(task = task)
+                                                }
+                                            }
+                                        }
+                                        if (queuedUploads.isNotEmpty()) {
+                                            FileEasyPanelSection(
+                                                title = "排队中",
+                                                countLabel = "${queuedUploads.size} 个任务"
+                                            ) {
+                                                queuedUploads.forEach { task ->
+                                                    FileEasyUploadOverviewCard(task = task)
+                                                }
+                                            }
+                                        }
+                                        if (completedUploads.isNotEmpty()) {
+                                            FileEasyPanelSection(
+                                                title = "已完成",
+                                                countLabel = "${completedUploads.size} 个任务"
+                                            ) {
+                                                completedUploads.forEach { task ->
+                                                    FileEasyUploadOverviewCard(task = task)
+                                                }
+                                            }
+                                        }
+                                        if (uploadQueue.isEmpty()) {
+                                            FileEasyPanelSection(
+                                                title = "接收列表"
+                                            ) {
+                                                FileEasyEmptyPanelHint("当前还没有接收任务，文件开始传输后会显示在这里。")
                                             }
                                         }
                                     }
@@ -1259,24 +1347,60 @@ private fun FileEasyUploadOverviewCard(task: HomeUploadTaskResponse) {
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = task.fileName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF262626),
+                Surface(
+                    color = task.fileName.toExtensionBadgeColor(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = task.fileName.toExtensionBadgeText(),
+                            color = task.fileName.toExtensionTextColor(),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Column(
                     modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${task.progress}%",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF77716A)
-                )
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = task.fileName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF262626),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${formatStorageValue(task.uploadedBytes)} / ${formatStorageValue(task.fileSize)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFB0AAA3)
+                    )
+                }
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = task.status.toUploadStatusLabel(),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = task.status.toUploadStatusColor()
+                    )
+                    Text(
+                        text = "${task.progress}%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF77716A)
+                    )
+                }
             }
             LinearProgressIndicator(
                 progress = (task.progress / 100f).coerceIn(0f, 1f),
@@ -1288,9 +1412,142 @@ private fun FileEasyUploadOverviewCard(task: HomeUploadTaskResponse) {
                 trackColor = Color(0xFFE4DFD9)
             )
             Text(
-                text = "${formatStorageValue(task.uploadedBytes)} / ${formatStorageValue(task.fileSize)}  ·  ${task.uploadedChunks}/${task.totalChunks} 分片",
+                text = "${task.uploadedChunks}/${task.totalChunks} 分片  ·  ${formatRecentTime(task.updatedAt)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFFB0AAA3)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FileEasyReceivingSummaryCard(
+    progress: Float,
+    progressLabel: String,
+    remainingLabel: String,
+    speedLabel: String,
+    fileCountLabel: String,
+    uploadedLabel: String,
+    totalLabel: String,
+    totalCount: Int,
+    completedCount: Int,
+    receivingCount: Int,
+    queuedCount: Int
+) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = Color(0xFF1B1B1B),
+        border = BorderStroke(1.dp, Color(0xFF2A2A2A))
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress,
+                        modifier = Modifier.size(78.dp),
+                        strokeWidth = 7.dp,
+                        color = Color.White
+                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = progressLabel,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "总进度",
+                            color = Color.White.copy(alpha = 0.62f),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "预计剩余 $remainingLabel",
+                        color = Color.White,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "$speedLabel · $fileCountLabel",
+                        color = Color.White.copy(alpha = 0.72f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "$uploadedLabel / $totalLabel",
+                        color = Color.White.copy(alpha = 0.72f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FileEasyQueueMetricChip(
+                    label = "总任务",
+                    value = totalCount.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+                FileEasyQueueMetricChip(
+                    label = "已完成",
+                    value = completedCount.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+                FileEasyQueueMetricChip(
+                    label = "接收中",
+                    value = receivingCount.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+                FileEasyQueueMetricChip(
+                    label = "排队中",
+                    value = queuedCount.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileEasyQueueMetricChip(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = value,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label,
+                color = Color.White.copy(alpha = 0.62f),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -1382,6 +1639,33 @@ private fun formatStorageValue(bytes: Long): String {
     }
 }
 
+private fun formatTransferRate(bytesPerSecond: Double): String {
+    if (bytesPerSecond <= 0.0) return "等待中"
+    val mbPerSecond = bytesPerSecond / (1024.0 * 1024.0)
+    val kbPerSecond = bytesPerSecond / 1024.0
+    val formatter = DecimalFormat("0.#")
+    return if (mbPerSecond >= 1.0) {
+        "${formatter.format(mbPerSecond)} MB/s"
+    } else {
+        "${formatter.format(kbPerSecond)} KB/s"
+    }
+}
+
+private fun formatRemainingDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000L).coerceAtLeast(1L)
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return if (minutes >= 60L) {
+        val hours = minutes / 60L
+        val remainMinutes = minutes % 60L
+        if (remainMinutes == 0L) "${hours}小时" else "${hours}小时${remainMinutes}分"
+    } else if (minutes > 0L) {
+        "约 ${minutes}分${seconds}秒"
+    } else {
+        "约 ${seconds}秒"
+    }
+}
+
 private fun formatRecentTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val delta = now - timestamp
@@ -1390,6 +1674,24 @@ private fun formatRecentTime(timestamp: Long): String {
         delta < 24 * 60 * 60 * 1000L -> "今天 ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))}"
         delta < 48 * 60 * 60 * 1000L -> "昨天 ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))}"
         else -> SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
+    }
+}
+
+private fun String.toUploadStatusLabel(): String {
+    return when (lowercase(Locale.getDefault())) {
+        "receiving", "ready", "uploading" -> "接收中"
+        "completed" -> "已完成"
+        "queued", "initialized" -> "排队中"
+        else -> "处理中"
+    }
+}
+
+private fun String.toUploadStatusColor(): Color {
+    return when (lowercase(Locale.getDefault())) {
+        "receiving", "ready", "uploading" -> Color(0xFF1F8A57)
+        "completed" -> Color(0xFF2D63D8)
+        "queued", "initialized" -> Color(0xFFC58A00)
+        else -> Color(0xFF7B746D)
     }
 }
 

@@ -22,6 +22,9 @@ interface UploadSessionDao {
     @Query("SELECT * FROM upload_sessions WHERE expiresAt >= :now AND status != 'completed' ORDER BY updatedAt DESC LIMIT :maxRows")
     suspend fun getActiveSessions(now: Long, maxRows: Int): List<UploadSessionEntity>
 
+    @Query("SELECT * FROM upload_sessions WHERE expiresAt >= :now ORDER BY createdAt ASC, updatedAt ASC LIMIT :maxRows")
+    suspend fun getRecentQueueSessions(now: Long, maxRows: Int): List<UploadSessionEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertChunk(chunk: UploadChunkEntity): Long
 
