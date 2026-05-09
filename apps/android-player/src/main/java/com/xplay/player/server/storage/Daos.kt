@@ -17,6 +17,12 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): MediaEntity?
 
+    @Query("SELECT COUNT(*) FROM media WHERE COALESCE(NULLIF(displayName, ''), originalName) = :displayName")
+    suspend fun countByDisplayName(displayName: String): Int
+
+    @Query("SELECT COUNT(*) FROM media WHERE COALESCE(NULLIF(displayName, ''), originalName) = :displayName AND id != :excludedId")
+    suspend fun countByDisplayNameExcludingId(displayName: String, excludedId: String): Int
+
     @Query("DELETE FROM media WHERE id = :id")
     suspend fun deleteById(id: String)
 }

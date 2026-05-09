@@ -7,7 +7,13 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "ai:validate:bundle": "node scripts/ai-framework/validate-project-bundle.mjs",
+    "ai:validate:bundle:ready": "node scripts/ai-framework/validate-project-bundle.mjs --ready",
+    "ai:validate:task": "node scripts/ai-framework/validate-task-pack.mjs",
+    "ai:check-scope": "node scripts/ai-framework/check-change-scope.mjs",
+    "ai:validate:publish": "node scripts/ai-framework/validate-publish-gate.mjs",
+    "ai:publish": "node scripts/ai-framework/ai-publish.mjs"
   },
   "devDependencies": {
     "@types/multer": "^2.0.0",

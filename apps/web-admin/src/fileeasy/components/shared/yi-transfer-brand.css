@@ -1,0 +1,102 @@
+.yitransfer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.yitransfer-brand__mark {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #17a36a 0%, #12c3ab 100%);
+  box-shadow:
+    0 12px 24px rgba(18, 163, 122, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.yitransfer-brand__corner {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+}
+
+.yitransfer-brand__corner--tl {
+  top: 7px;
+  left: 7px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 6px 0 0 0;
+}
+
+.yitransfer-brand__corner--tr {
+  top: 7px;
+  right: 7px;
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 0 6px 0 0;
+}
+
+.yitransfer-brand__corner--bl {
+  bottom: 7px;
+  left: 7px;
+  border-right: 0;
+  border-top: 0;
+  border-radius: 0 0 0 6px;
+}
+
+.yitransfer-brand__corner--br {
+  right: 7px;
+  bottom: 7px;
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 6px 0;
+}
+
+.yitransfer-brand__beam {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 4px;
+  height: 15px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateX(-50%);
+}
+
+.yitransfer-brand__beam-tip {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-top: 4px solid rgba(255, 255, 255, 0.96);
+  border-right: 4px solid rgba(255, 255, 255, 0.96);
+  transform: translateX(-50%) rotate(135deg);
+  border-radius: 2px;
+}
+
+.yitransfer-brand__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.yitransfer-brand__copy strong {
+  font-size: 1.16rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #16201c;
+}
+
+.yitransfer-brand__copy span {
+  color: #7a756d;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.yitransfer-brand--inverse .yitransfer-brand__copy strong,
+.yitransfer-brand--inverse .yitransfer-brand__copy span {
+  color: #fff;
+}

@@ -1,0 +1,546 @@
+:root {
+  --fileeasy-bg: #f6f8fb;
+  --fileeasy-surface: rgba(255, 255, 255, 0.92);
+  --fileeasy-surface-strong: #ffffff;
+  --fileeasy-border: #e3e8ef;
+  --fileeasy-text: #1f2430;
+  --fileeasy-text-soft: #5b6575;
+  --fileeasy-text-muted: #8a93a3;
+  --fileeasy-primary: #1565c0;
+  --fileeasy-primary-dark: #0e4d95;
+  --fileeasy-accent: #00a896;
+  --fileeasy-success: #1b8f5a;
+  --fileeasy-warning: #c67a00;
+  --fileeasy-danger: #c53b32;
+  --fileeasy-shadow: 0 20px 50px rgba(12, 35, 61, 0.08);
+  font-family: 'MiSans', 'Noto Sans SC', 'PingFang SC', 'HarmonyOS Sans SC', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--fileeasy-text);
+  background:
+    radial-gradient(circle at top left, rgba(21, 101, 192, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(0, 168, 150, 0.15), transparent 26%),
+    linear-gradient(180deg, #f9fbfd 0%, #f1f5f9 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.fileeasy-upload-page {
+  min-height: 100vh;
+  padding: 32px 18px 48px;
+}
+
+.fileeasy-upload-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.fileeasy-hero,
+.fileeasy-card {
+  border: 1px solid rgba(227, 232, 239, 0.88);
+  background:
+    radial-gradient(circle at top right, rgba(21, 101, 192, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 253, 0.9));
+  box-shadow: var(--fileeasy-shadow);
+}
+
+.fileeasy-hero {
+  border-radius: 30px;
+  padding: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: start;
+}
+
+.fileeasy-eyebrow {
+  display: inline-flex;
+  margin-bottom: 14px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(21, 101, 192, 0.1);
+  color: var(--fileeasy-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fileeasy-hero h1,
+.fileeasy-card h2 {
+  margin: 0;
+}
+
+.fileeasy-hero h1 {
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.fileeasy-hero p,
+.fileeasy-card p,
+.fileeasy-card__hint,
+.fileeasy-helper-text,
+.fileeasy-task-tip,
+.fileeasy-empty-state span,
+.fileeasy-task-card__meta span,
+.fileeasy-task-card__top span,
+.fileeasy-task-card__note,
+.fileeasy-field span,
+.fileeasy-bullet-list span {
+  color: var(--fileeasy-text-soft);
+}
+
+.fileeasy-hero p {
+  margin: 12px 0 0;
+  max-width: 680px;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.fileeasy-chip-row,
+.fileeasy-hero__actions,
+.fileeasy-hero__buttons,
+.fileeasy-upload-actions,
+.fileeasy-password-row,
+.fileeasy-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fileeasy-chip {
+  margin-top: 18px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(21, 101, 192, 0.12);
+  background: rgba(21, 101, 192, 0.08);
+  color: var(--fileeasy-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.fileeasy-hero__actions {
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.fileeasy-hero__buttons {
+  justify-content: flex-end;
+}
+
+.fileeasy-session-pill,
+.fileeasy-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.fileeasy-session-pill.neutral {
+  background: rgba(21, 101, 192, 0.1);
+  color: var(--fileeasy-primary);
+}
+
+.fileeasy-session-pill.success,
+.fileeasy-session-pill.success-soft,
+.fileeasy-status-pill.completed {
+  background: rgba(27, 143, 90, 0.12);
+  color: var(--fileeasy-success);
+}
+
+.fileeasy-session-pill.warning,
+.fileeasy-status-pill.paused {
+  background: rgba(198, 122, 0, 0.13);
+  color: var(--fileeasy-warning);
+}
+
+.fileeasy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.fileeasy-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fileeasy-card {
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.fileeasy-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.fileeasy-card__header h2 {
+  font-size: 1.3rem;
+}
+
+.fileeasy-card__header p {
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+
+.fileeasy-card__hint {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.fileeasy-card--upload.is-locked {
+  position: relative;
+}
+
+.fileeasy-card--upload.is-locked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+.fileeasy-button {
+  border: none;
+  border-radius: 14px;
+  min-height: 46px;
+  padding: 0 18px;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+
+.fileeasy-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.fileeasy-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fileeasy-button.primary {
+  background: linear-gradient(135deg, var(--fileeasy-primary), var(--fileeasy-accent));
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(21, 101, 192, 0.22);
+}
+
+.fileeasy-button.secondary {
+  background: rgba(21, 101, 192, 0.08);
+  color: var(--fileeasy-primary);
+}
+
+.fileeasy-button.ghost {
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--fileeasy-text);
+  border: 1px solid var(--fileeasy-border);
+}
+
+.fileeasy-hidden-input {
+  display: none;
+}
+
+.fileeasy-upload-actions {
+  margin-top: 22px;
+  align-items: center;
+}
+
+.fileeasy-helper-text {
+  font-size: 0.92rem;
+}
+
+.fileeasy-bullet-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.fileeasy-bullet-list span,
+.fileeasy-inline-warning span,
+.fileeasy-inline-success span {
+  line-height: 1.55;
+}
+
+.fileeasy-bullet-list span::before {
+  content: '•';
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--fileeasy-accent);
+}
+
+.fileeasy-inline-warning,
+.fileeasy-inline-success {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.fileeasy-inline-warning {
+  background: rgba(253, 246, 234, 0.94);
+  border: 1px solid rgba(198, 122, 0, 0.18);
+}
+
+.fileeasy-inline-success {
+  background: rgba(236, 248, 242, 0.96);
+  border: 1px solid rgba(27, 143, 90, 0.18);
+}
+
+.fileeasy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.fileeasy-field span {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.fileeasy-password-row {
+  align-items: stretch;
+}
+
+.fileeasy-password-row input {
+  flex: 1 1 220px;
+}
+
+.fileeasy-password-row input,
+.fileeasy-field input {
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid var(--fileeasy-border);
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--fileeasy-text);
+}
+
+.fileeasy-feedback {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 0.94rem;
+}
+
+.fileeasy-feedback.error {
+  background: rgba(253, 239, 237, 0.96);
+  border: 1px solid rgba(197, 59, 50, 0.16);
+  color: var(--fileeasy-danger);
+}
+
+.fileeasy-feedback.soft {
+  margin-top: 0;
+}
+
+.fileeasy-metrics {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fileeasy-metrics div {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(227, 232, 239, 0.92);
+}
+
+.fileeasy-metrics span {
+  display: block;
+  color: var(--fileeasy-text-soft);
+  font-size: 0.88rem;
+}
+
+.fileeasy-metrics strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.25rem;
+}
+
+.fileeasy-card--tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.fileeasy-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px;
+  border-radius: 20px;
+  border: 1px dashed rgba(138, 147, 163, 0.3);
+  background: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+.fileeasy-task-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.fileeasy-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--fileeasy-surface-strong), rgba(247, 250, 252, 0.94));
+  border: 1px solid rgba(227, 232, 239, 0.92);
+  box-shadow: 0 12px 28px rgba(12, 35, 61, 0.06);
+}
+
+.fileeasy-task-card__top,
+.fileeasy-task-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fileeasy-task-card__top strong {
+  display: block;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.fileeasy-task-card__top span {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.fileeasy-task-card__meta {
+  font-size: 0.9rem;
+}
+
+.fileeasy-progress {
+  width: 100%;
+  height: 11px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e7eef4;
+}
+
+.fileeasy-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--fileeasy-primary), var(--fileeasy-accent));
+  transition: width 160ms ease;
+}
+
+.fileeasy-task-card.paused .fileeasy-progress__fill {
+  background: linear-gradient(90deg, rgba(198, 122, 0, 0.78), var(--fileeasy-warning));
+}
+
+.fileeasy-task-card.failed .fileeasy-progress__fill {
+  background: linear-gradient(90deg, rgba(224, 102, 92, 0.82), var(--fileeasy-danger));
+}
+
+.fileeasy-task-card.completed .fileeasy-progress__fill {
+  background: linear-gradient(90deg, rgba(27, 143, 90, 0.82), var(--fileeasy-success));
+}
+
+.fileeasy-status-pill {
+  align-self: flex-start;
+  background: rgba(21, 101, 192, 0.1);
+  color: var(--fileeasy-primary);
+}
+
+.fileeasy-status-pill.uploading,
+.fileeasy-status-pill.resuming {
+  background: rgba(21, 101, 192, 0.1);
+  color: var(--fileeasy-primary);
+}
+
+.fileeasy-status-pill.failed {
+  background: rgba(197, 59, 50, 0.12);
+  color: var(--fileeasy-danger);
+}
+
+.fileeasy-task-card__note {
+  margin: 0;
+  min-height: 44px;
+  line-height: 1.55;
+}
+
+.fileeasy-task-actions {
+  margin-top: auto;
+  align-items: center;
+}
+
+.fileeasy-task-tip {
+  font-size: 0.88rem;
+}
+
+@media (max-width: 960px) {
+  .fileeasy-hero,
+  .fileeasy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fileeasy-hero__actions {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .fileeasy-upload-page {
+    padding: 18px 12px 32px;
+  }
+
+  .fileeasy-hero,
+  .fileeasy-card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .fileeasy-card__header,
+  .fileeasy-task-card__top,
+  .fileeasy-task-card__meta {
+    flex-direction: column;
+  }
+
+  .fileeasy-metrics,
+  .fileeasy-task-list {
+    grid-template-columns: 1fr;
+  }
+
+  .fileeasy-button {
+    width: 100%;
+  }
+
+  .fileeasy-password-row {
+    flex-direction: column;
+  }
+}

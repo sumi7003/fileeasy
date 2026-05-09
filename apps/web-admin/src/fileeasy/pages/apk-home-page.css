@@ -1,0 +1,729 @@
+.fileeasy-apk-page {
+  --fileeasy-bg: #eef3f7;
+  --fileeasy-surface: #ffffff;
+  --fileeasy-surface-tint: rgba(242, 247, 251, 0.94);
+  --fileeasy-border: #d8e3ec;
+  --fileeasy-text: #18212f;
+  --fileeasy-text-soft: #617086;
+  --fileeasy-primary: #1565c0;
+  --fileeasy-primary-strong: #0d47a1;
+  --fileeasy-accent: #00a896;
+  --fileeasy-success: #1b8f5a;
+  --fileeasy-warning: #c67a00;
+  --fileeasy-danger: #c53b32;
+  --fileeasy-shadow: 0 28px 60px rgba(14, 35, 64, 0.13);
+  --fileeasy-shadow-soft: 0 18px 38px rgba(14, 35, 64, 0.08);
+  --fileeasy-radius-lg: 20px;
+  min-height: 100vh;
+  padding: 32px 18px 48px;
+  color: var(--fileeasy-text);
+  background:
+    radial-gradient(circle at top left, rgba(21, 101, 192, 0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(0, 168, 150, 0.14), transparent 30%),
+    linear-gradient(180deg, #f7fafc 0%, #eef3f7 100%);
+  font-family: 'MiSans', 'Noto Sans SC', 'PingFang SC', 'HarmonyOS Sans SC', sans-serif;
+}
+
+.fileeasy-apk-page *,
+.fileeasy-apk-page *::before,
+.fileeasy-apk-page *::after {
+  box-sizing: border-box;
+}
+
+.fileeasy-apk-page button,
+.fileeasy-apk-page input {
+  font: inherit;
+}
+
+@keyframes fileeasyRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fileeasyGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(21, 101, 192, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(21, 101, 192, 0.08);
+  }
+}
+
+.fileeasy-subtitle,
+.fileeasy-muted {
+  color: var(--fileeasy-text-soft);
+}
+
+.fileeasy-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fileeasy-device {
+  position: relative;
+  width: min(100%, 1080px);
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+}
+
+.fileeasy-device--android {
+  max-width: 440px;
+}
+
+.fileeasy-device--android::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 38px;
+  background: linear-gradient(145deg, #1f2430, #394557);
+  box-shadow: 0 20px 44px rgba(31, 36, 48, 0.24);
+}
+
+.fileeasy-device--android .fileeasy-screen {
+  position: relative;
+  width: calc(100% - 18px);
+  margin: 9px;
+  min-height: 780px;
+  padding: 26px 22px;
+  border-radius: 30px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f2f6fa 100%);
+  box-shadow: var(--fileeasy-shadow);
+  animation: fileeasyRiseIn 240ms ease;
+}
+
+.fileeasy-screen,
+.fileeasy-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fileeasy-mode-switcher,
+.fileeasy-guide-list,
+.fileeasy-setup-card__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fileeasy-service-strip {
+  display: grid;
+  gap: 10px;
+}
+
+.fileeasy-service-step {
+  border: 1px solid var(--fileeasy-border);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fileeasy-service-step.active {
+  border-color: rgba(21, 101, 192, 0.24);
+  background: linear-gradient(180deg, rgba(21, 101, 192, 0.08), rgba(255, 255, 255, 0.88));
+  box-shadow: 0 14px 26px rgba(21, 101, 192, 0.08);
+}
+
+.fileeasy-service-step.done {
+  border-color: rgba(27, 143, 90, 0.18);
+}
+
+.fileeasy-service-step__dot {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #edf3f8;
+  color: var(--fileeasy-text-soft);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.fileeasy-service-step.active .fileeasy-service-step__dot {
+  background: linear-gradient(135deg, var(--fileeasy-primary), var(--fileeasy-accent));
+  color: #fff;
+}
+
+.fileeasy-service-step.done .fileeasy-service-step__dot {
+  background: rgba(27, 143, 90, 0.12);
+  color: var(--fileeasy-success);
+}
+
+.fileeasy-service-step div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fileeasy-service-step small {
+  color: var(--fileeasy-text-soft);
+  line-height: 1.45;
+}
+
+.fileeasy-setup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--fileeasy-radius-lg);
+  border: 1px solid rgba(21, 101, 192, 0.14);
+  background: linear-gradient(180deg, rgba(21, 101, 192, 0.08), rgba(0, 168, 150, 0.04));
+}
+
+.fileeasy-setup-card__title {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.fileeasy-setup-card__list span,
+.fileeasy-guide-list span {
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 227, 236, 0.8);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--fileeasy-text-soft);
+}
+
+.active-chip {
+  box-shadow: 0 12px 24px rgba(21, 101, 192, 0.12);
+}
+
+.fileeasy-screen__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.fileeasy-screen__header--hero {
+  padding-bottom: 6px;
+}
+
+.fileeasy-brand {
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.fileeasy-brand-lockup .yitransfer-brand__copy strong {
+  font-size: 1.68rem;
+}
+
+.fileeasy-brand-lockup .yitransfer-brand__copy span {
+  font-size: 0.92rem;
+}
+
+.fileeasy-guide-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border-radius: var(--fileeasy-radius-lg);
+  border: 1px solid rgba(21, 101, 192, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 252, 0.92));
+  box-shadow: var(--fileeasy-shadow-soft);
+}
+
+.fileeasy-guide-panel__title {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.fileeasy-guide-panel__subtitle {
+  color: var(--fileeasy-text-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.fileeasy-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fileeasy-guide-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(216, 227, 236, 0.82);
+}
+
+.fileeasy-guide-step__index {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--fileeasy-primary), var(--fileeasy-accent));
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.fileeasy-guide-step div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fileeasy-guide-step strong {
+  font-size: 0.98rem;
+}
+
+.fileeasy-guide-step span,
+.fileeasy-guide-inline span,
+.fileeasy-home-files__header span,
+.fileeasy-home-upload-state__header span,
+.fileeasy-home-upload-task__meta span,
+.fileeasy-home-file__top span,
+.fileeasy-home-file__meta span,
+.fileeasy-home-files__empty,
+.fileeasy-home-upload-state__empty {
+  color: var(--fileeasy-text-soft);
+  line-height: 1.45;
+}
+
+.fileeasy-guide-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fileeasy-guide-inline span {
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(21, 101, 192, 0.08);
+  border: 1px solid rgba(21, 101, 192, 0.12);
+}
+
+.fileeasy-status-pill.warning {
+  background: rgba(198, 122, 0, 0.14);
+  color: var(--fileeasy-warning);
+}
+
+.fileeasy-status-pill.setup {
+  background: rgba(21, 101, 192, 0.12);
+  color: var(--fileeasy-primary);
+}
+
+.fileeasy-qr-card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border-radius: var(--fileeasy-radius-lg);
+  border: 1px solid var(--fileeasy-border);
+  background: linear-gradient(180deg, var(--fileeasy-surface), var(--fileeasy-surface-tint));
+  box-shadow: 0 16px 34px rgba(16, 34, 58, 0.06);
+}
+
+.fileeasy-qr-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(21, 101, 192, 0.1), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(0, 168, 150, 0.08), transparent 26%);
+  pointer-events: none;
+}
+
+.fileeasy-qr-card--warning {
+  background: rgba(250, 242, 228, 0.92);
+  border-color: rgba(198, 122, 0, 0.18);
+}
+
+.fileeasy-qr-card--pending {
+  background:
+    radial-gradient(circle at top right, rgba(21, 101, 192, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(240, 246, 250, 0.98));
+}
+
+.fileeasy-empty-hero {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.fileeasy-qr-card__layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.fileeasy-qr-card__main,
+.fileeasy-qr-card__side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fileeasy-qr-card__main {
+  align-items: center;
+}
+
+.fileeasy-mini-note {
+  color: var(--fileeasy-text-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.fileeasy-upload-flow-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fileeasy-upload-flow-hint span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(21, 101, 192, 0.08);
+  border: 1px solid rgba(21, 101, 192, 0.12);
+  color: var(--fileeasy-text-soft);
+  font-size: 0.82rem;
+}
+
+.fileeasy-home-upload-state {
+  position: relative;
+  z-index: 1;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(216, 227, 236, 0.82);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fileeasy-home-upload-state__header,
+.fileeasy-home-files__header,
+.fileeasy-home-file__top,
+.fileeasy-home-file__meta,
+.fileeasy-home-upload-task__top,
+.fileeasy-home-upload-task__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.fileeasy-home-upload-state__header strong,
+.fileeasy-home-files__header strong {
+  font-size: 1rem;
+}
+
+.fileeasy-home-upload-state__list,
+.fileeasy-home-files__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fileeasy-home-upload-task,
+.fileeasy-home-file {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(216, 227, 236, 0.84);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.fileeasy-home-upload-task {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.fileeasy-home-upload-task__top strong,
+.fileeasy-home-file__top strong {
+  font-size: 0.96rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.fileeasy-home-upload-task__bar {
+  margin-top: 10px;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e7eef4;
+}
+
+.fileeasy-home-upload-task__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--fileeasy-primary), var(--fileeasy-accent));
+}
+
+.fileeasy-home-upload-task__meta {
+  margin-top: 8px;
+}
+
+.fileeasy-home-files {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--fileeasy-radius-lg);
+  border: 1px solid rgba(216, 227, 236, 0.88);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 252, 0.92));
+  box-shadow: var(--fileeasy-shadow-soft);
+}
+
+.fileeasy-home-files__empty,
+.fileeasy-home-upload-state__empty {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(245, 248, 251, 0.9);
+  border: 1px dashed rgba(216, 227, 236, 0.92);
+}
+
+.fileeasy-home-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.fileeasy-home-illustration {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 14px;
+  gap: 10px;
+  border-radius: var(--fileeasy-radius-lg);
+  border: 1px solid rgba(216, 227, 236, 0.88);
+  background:
+    radial-gradient(circle at top left, rgba(21, 101, 192, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 252, 0.92));
+  box-shadow: var(--fileeasy-shadow-soft);
+}
+
+.fileeasy-home-illustration__access {
+  color: var(--fileeasy-text-soft);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.fileeasy-home-illustration__image {
+  display: block;
+  width: min(100%, 300px);
+  aspect-ratio: 1448 / 1086;
+  object-fit: contain;
+}
+
+.fileeasy-mini-grid,
+.fileeasy-apk-metrics {
+  display: grid;
+  gap: 12px;
+}
+
+.fileeasy-mini-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fileeasy-mini-grid div,
+.fileeasy-metric-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(216, 227, 236, 0.86);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.fileeasy-mini-grid span,
+.fileeasy-metric-card span {
+  color: var(--fileeasy-text-soft);
+  font-size: 0.82rem;
+}
+
+.fileeasy-mini-grid strong,
+.fileeasy-metric-card strong {
+  display: block;
+  margin-top: 6px;
+}
+
+.fileeasy-apk-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fileeasy-metric-card strong {
+  font-size: 1rem;
+}
+
+.fileeasy-qr-card__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fileeasy-text-soft);
+}
+
+.fileeasy-qr {
+  width: 240px;
+  height: 240px;
+  margin: 8px auto;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 26px;
+  cursor: pointer;
+  color: rgba(13, 21, 35, 0.25);
+  font-weight: 800;
+  background:
+    linear-gradient(90deg, #0d1523 12px, transparent 12px) 0 0 / 32px 32px,
+    linear-gradient(#0d1523 12px, transparent 12px) 0 0 / 32px 32px,
+    linear-gradient(90deg, transparent 20px, #0d1523 20px, #0d1523 26px, transparent 26px) 0 0 / 64px 64px,
+    linear-gradient(transparent 20px, #0d1523 20px, #0d1523 26px, transparent 26px) 0 0 / 64px 64px,
+    #fff;
+  box-shadow: inset 0 0 0 12px #fff;
+  animation: fileeasyGlow 2.8s ease-in-out infinite;
+}
+
+.fileeasy-address {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(216, 227, 236, 0.9);
+  background: linear-gradient(180deg, #f8fbfd, #eef5f9);
+  color: var(--fileeasy-text);
+  font-family: ui-monospace, 'SFMono-Regular', 'Roboto Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.fileeasy-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid rgba(216, 227, 236, 0.9);
+  border-radius: var(--fileeasy-radius-lg);
+  background: linear-gradient(180deg, #ffffff, #f4f8fb);
+  box-shadow: var(--fileeasy-shadow-soft);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.fileeasy-action-card:hover,
+.fileeasy-qr:hover {
+  transform: translateY(-1px);
+}
+
+.fileeasy-action-card strong {
+  font-size: 1.05rem;
+}
+
+.fileeasy-action-card span {
+  color: var(--fileeasy-text-soft);
+}
+
+.fileeasy-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fileeasy-form-row label {
+  font-weight: 700;
+}
+
+.fileeasy-error {
+  color: var(--fileeasy-danger);
+  font-size: 0.92rem;
+}
+
+.fileeasy-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(13, 21, 35, 0.34);
+  backdrop-filter: blur(8px);
+}
+
+.fileeasy-modal {
+  width: min(680px, 100%);
+  border-radius: 28px;
+  border: 1px solid rgba(216, 227, 236, 0.95);
+  background: #fff;
+  box-shadow: 0 26px 80px rgba(13, 21, 35, 0.22);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: fileeasyRiseIn 180ms ease;
+}
+
+@media (max-width: 1180px) {
+  .fileeasy-qr-card__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .fileeasy-guide-steps,
+  .fileeasy-apk-metrics,
+  .fileeasy-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fileeasy-home-illustration__image {
+    width: min(100%, 220px);
+  }
+}
+
+@media (max-width: 640px) {
+  .fileeasy-device--android .fileeasy-screen {
+    min-height: 720px;
+    padding: 18px 16px;
+  }
+
+  .fileeasy-qr {
+    width: 200px;
+    height: 200px;
+  }
+
+  .fileeasy-screen__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fileeasy-home-upload-state__header,
+  .fileeasy-home-files__header,
+  .fileeasy-home-file__top,
+  .fileeasy-home-file__meta,
+  .fileeasy-home-upload-task__top,
+  .fileeasy-home-upload-task__meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

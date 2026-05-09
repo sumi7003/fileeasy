@@ -7,11 +7,17 @@ import androidx.room.PrimaryKey
 data class MediaEntity(
     @PrimaryKey val id: String,
     val originalName: String,
+    val displayName: String = "",
     val filename: String,
     val url: String,
     val type: String,
+    val extension: String = "",
+    val mimeType: String = "application/octet-stream",
+    val category: String = "other",
+    val previewSupported: Boolean = false,
     val size: Long,
-    val createdAt: Long
+    val createdAt: Long,
+    val updatedAt: Long = 0L
 )
 
 @Entity(tableName = "playlists")

@@ -1,0 +1,326 @@
+.fe-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.fe-button:not(:disabled) {
+  cursor: pointer;
+}
+
+.fe-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.fe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.fe-button.primary,
+.fe-button.fe-button--primary {
+  color: #f6fbff;
+  background: linear-gradient(135deg, #0e6eb8, #0a8f84);
+  box-shadow: 0 16px 30px rgba(13, 77, 127, 0.18);
+}
+
+.fe-button.secondary,
+.fe-button.fe-button--secondary {
+  color: #113246;
+  background: rgba(14, 110, 184, 0.08);
+  border-color: rgba(14, 110, 184, 0.18);
+}
+
+.fe-button.ghost,
+.fe-button.fe-button--ghost {
+  color: #23455d;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(17, 50, 70, 0.08);
+}
+
+.fe-button.danger,
+.fe-button.fe-button--danger {
+  color: #fff7f6;
+  background: linear-gradient(135deg, #c4513f, #b93737);
+  box-shadow: 0 16px 30px rgba(146, 45, 40, 0.18);
+}
+
+.fe-button.fe-button--sm {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.fe-button.fe-button--lg {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 16px;
+  font-size: 15px;
+}
+
+.fe-button.fe-button--block {
+  width: 100%;
+}
+
+.fe-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fe-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(17, 50, 70, 0.12);
+  border-radius: 14px;
+  outline: none;
+  font-size: 14px;
+  color: #13354a;
+  background: rgba(255, 255, 255, 0.96);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.fe-input::placeholder {
+  color: #7a8f9f;
+}
+
+.fe-input:focus {
+  border-color: rgba(14, 110, 184, 0.34);
+  box-shadow: 0 0 0 4px rgba(14, 110, 184, 0.08);
+}
+
+.fe-input.fe-input--invalid,
+.fe-input[aria-invalid='true'] {
+  border-color: rgba(185, 55, 55, 0.4);
+  box-shadow: 0 0 0 4px rgba(185, 55, 55, 0.08);
+}
+
+.fe-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.fe-status-pill.fe-status-pill--neutral {
+  color: #355669;
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(17, 50, 70, 0.08);
+}
+
+.fe-status-pill.fe-status-pill--info {
+  color: #0f5488;
+  background: rgba(14, 110, 184, 0.12);
+  border-color: rgba(14, 110, 184, 0.16);
+}
+
+.fe-status-pill.fe-status-pill--success {
+  color: #11725a;
+  background: rgba(16, 150, 115, 0.12);
+  border-color: rgba(16, 150, 115, 0.16);
+}
+
+.fe-status-pill.fe-status-pill--warning {
+  color: #8e5c0d;
+  background: rgba(227, 163, 58, 0.16);
+  border-color: rgba(227, 163, 58, 0.2);
+}
+
+.fe-status-pill.fe-status-pill--danger {
+  color: #a23b3b;
+  background: rgba(196, 81, 63, 0.12);
+  border-color: rgba(196, 81, 63, 0.18);
+}
+
+.fe-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 28px 24px;
+  border-radius: 22px;
+  border: 1px dashed rgba(17, 50, 70, 0.12);
+  background: rgba(248, 251, 255, 0.82);
+}
+
+.fe-empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(14, 110, 184, 0.1);
+  color: #1d5c7a;
+  font-size: 18px;
+}
+
+.fe-empty-state strong {
+  font-size: 15px;
+  color: #173447;
+}
+
+.fe-empty-state span {
+  max-width: 420px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #748796;
+}
+
+.fe-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(11, 24, 35, 0.4);
+  backdrop-filter: blur(14px);
+}
+
+.fe-dialog {
+  width: min(560px, 100%);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(248, 252, 255, 0.96);
+  box-shadow: 0 28px 80px rgba(16, 36, 51, 0.22);
+  overflow: hidden;
+}
+
+.fe-dialog.fe-dialog--compact {
+  width: min(460px, 100%);
+}
+
+.fe-dialog__header,
+.fe-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+}
+
+.fe-dialog__header {
+  border-bottom: 1px solid rgba(17, 50, 70, 0.08);
+}
+
+.fe-dialog__header-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.fe-dialog__header-copy strong {
+  font-size: 18px;
+  color: #173447;
+}
+
+.fe-dialog__header-copy span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6e8393;
+}
+
+.fe-dialog__body {
+  padding: 24px;
+}
+
+.fe-dialog__footer {
+  justify-content: flex-end;
+  border-top: 1px solid rgba(17, 50, 70, 0.08);
+}
+
+.fe-progress {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(17, 50, 70, 0.09);
+}
+
+.fe-progress__fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #0e6eb8, #0a8f84);
+  transition: width 220ms ease;
+}
+
+.fe-progress__fill.fe-progress__fill--success {
+  background: linear-gradient(135deg, #109673, #0c7f63);
+}
+
+.fe-progress__fill.fe-progress__fill--warning {
+  background: linear-gradient(135deg, #d59a2c, #bb7e16);
+}
+
+.fe-progress__fill.fe-progress__fill--danger {
+  background: linear-gradient(135deg, #c4513f, #b93737);
+}
+
+.fe-page-section {
+  display: grid;
+  gap: 18px;
+}
+
+.fe-page-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fe-page-section__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.fe-page-section__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5a8098;
+}
+
+.fe-page-section__copy h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  color: #173447;
+}
+
+.fe-page-section__copy p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #70828f;
+}

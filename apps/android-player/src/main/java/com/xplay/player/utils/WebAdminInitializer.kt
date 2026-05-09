@@ -11,8 +11,22 @@ object WebAdminInitializer {
 
     fun isInitialized(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_WEB_ADMIN_INITIALIZED, false) &&
-            getWebRootDir(context).resolve(INDEX_FILE).exists()
+        if (!prefs.getBoolean(KEY_WEB_ADMIN_INITIALIZED, false)) {
+            return false
+        }
+
+        val targetIndex = getWebRootDir(context).resolve(INDEX_FILE)
+        if (!targetIndex.exists()) {
+            return false
+        }
+
+        return try {
+            val assetIndexBytes = context.assets.open("$ASSETS_ROOT/$INDEX_FILE").use { it.readBytes() }
+            val targetIndexBytes = targetIndex.readBytes()
+            assetIndexBytes.contentEquals(targetIndexBytes)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun hasAssets(context: Context): Boolean {
@@ -36,9 +50,10 @@ object WebAdminInitializer {
     fun copyAssetsToWebRoot(context: Context): Boolean {
         return try {
             val targetRoot = getWebRootDir(context)
-            if (!targetRoot.exists()) {
-                targetRoot.mkdirs()
+            if (targetRoot.exists()) {
+                targetRoot.deleteRecursively()
             }
+            targetRoot.mkdirs()
             copyAssetsRecursively(context, ASSETS_ROOT, targetRoot)
             markInitialized(context)
             true

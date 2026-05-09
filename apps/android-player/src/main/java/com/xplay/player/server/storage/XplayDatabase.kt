@@ -14,9 +14,11 @@ import androidx.room.RoomDatabase
         DevicePlaylistCrossRef::class,
         TransferFileEntity::class,
         TransferLogEntity::class,
-        TransferIpQuotaEntity::class
+        TransferIpQuotaEntity::class,
+        UploadSessionEntity::class,
+        UploadChunkEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class XplayDatabase : RoomDatabase() {
@@ -24,6 +26,7 @@ abstract class XplayDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun deviceDao(): DeviceDao
     abstract fun transferDao(): TransferDao
+    abstract fun uploadSessionDao(): UploadSessionDao
 }
 
 object LocalDatabaseProvider {

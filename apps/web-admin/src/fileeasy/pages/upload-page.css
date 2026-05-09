@@ -1,0 +1,624 @@
+:root {
+  color: #1f1f1f;
+  font-family: MiSans, 'Noto Sans SC', 'PingFang SC', 'HarmonyOS Sans SC', sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(248, 242, 235, 0.92), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(227, 241, 234, 0.82), transparent 26%),
+    linear-gradient(180deg, #f7f4ee 0%, #f3efe8 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: #1f1f1f;
+  background:
+    radial-gradient(circle at top left, rgba(248, 242, 235, 0.92), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(227, 241, 234, 0.82), transparent 26%),
+    linear-gradient(180deg, #f7f4ee 0%, #f3efe8 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.fileeasy-upload-page {
+  min-height: 100vh;
+  padding: 28px 16px 40px;
+}
+
+.fileeasy-upload-shell {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.fileeasy-hidden-input {
+  display: none;
+}
+
+.fileeasy-flow-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.fileeasy-flow-header .yitransfer-brand {
+  flex: 1;
+  min-width: 0;
+}
+
+.fileeasy-flow-banner {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  color: #6f675f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.fileeasy-connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+  color: #8e867e;
+  font-size: 0.82rem;
+  border: 1px solid rgba(31, 31, 31, 0.06);
+}
+
+.fileeasy-connection-pill.ready {
+  color: #27b96f;
+}
+
+.fileeasy-connection-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.fileeasy-flow-card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 22px 56px rgba(52, 40, 22, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(16px);
+}
+
+.fileeasy-flow-card--centered {
+  justify-items: center;
+  text-align: center;
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+
+.fileeasy-flow-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fileeasy-flow-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.fileeasy-flow-copy__eyebrow {
+  font-size: 0.88rem;
+  letter-spacing: 0.16em;
+  color: #bbb1a7;
+}
+
+.fileeasy-flow-copy h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 2.35rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+  color: #1d1d1d;
+}
+
+.fileeasy-flow-copy p {
+  margin: 0;
+  color: #8b837b;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.fileeasy-hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 26px;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.fileeasy-hero-icon--danger {
+  color: #ea544f;
+  background: rgba(243, 240, 235, 0.92);
+}
+
+.fileeasy-hero-icon--success {
+  color: #13a86a;
+  background: rgba(208, 247, 223, 0.88);
+}
+
+.fileeasy-network-card,
+.fileeasy-result-card {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid rgba(31, 31, 31, 0.06);
+  box-shadow: 0 10px 24px rgba(52, 40, 22, 0.06);
+}
+
+.fileeasy-network-card span,
+.fileeasy-network-card small,
+.fileeasy-result-card span {
+  color: #b0a79f;
+  font-size: 0.82rem;
+}
+
+.fileeasy-network-card strong,
+.fileeasy-result-card strong {
+  color: #ec5752;
+  font-size: 1rem;
+}
+
+.fileeasy-network-card code {
+  color: #5f5a56;
+  font-size: 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.fileeasy-result-card {
+  gap: 0;
+  overflow: hidden;
+}
+
+.fileeasy-result-card div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.fileeasy-result-card div + div {
+  border-top: 1px solid rgba(31, 31, 31, 0.08);
+}
+
+.fileeasy-result-card strong {
+  color: #1f1f1f;
+  text-align: right;
+}
+
+.fileeasy-network-inline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.fileeasy-field {
+  display: grid;
+  gap: 10px;
+}
+
+.fileeasy-field span {
+  font-size: 0.86rem;
+  color: #a19890;
+}
+
+.fileeasy-password-field {
+  position: relative;
+}
+
+.fileeasy-password-field .fe-input {
+  min-height: 56px;
+  padding-right: 84px;
+  border-radius: 18px;
+  border-color: rgba(31, 31, 31, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(31, 31, 31, 0.05);
+  font-size: 1.06rem;
+  letter-spacing: 0.12em;
+}
+
+.fileeasy-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  border: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: #9c9389;
+  cursor: pointer;
+}
+
+.fileeasy-error-text {
+  color: #d94c47;
+  font-size: 0.9rem;
+}
+
+.fileeasy-remember-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #908881;
+  font-size: 0.88rem;
+}
+
+.fileeasy-remember-row input {
+  width: 14px;
+  height: 14px;
+}
+
+.fileeasy-dropzone {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 18px 22px;
+  border-radius: 26px;
+  border: 1px dashed rgba(31, 31, 31, 0.16);
+  background: rgba(255, 255, 255, 0.42);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.fileeasy-dropzone:hover,
+.fileeasy-dropzone.is-dragging {
+  transform: translateY(-1px);
+  border-color: rgba(31, 31, 31, 0.28);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 16px 36px rgba(52, 40, 22, 0.08);
+}
+
+.fileeasy-dropzone__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: rgba(241, 238, 234, 0.94);
+  color: #8e867e;
+  font-size: 1.6rem;
+}
+
+.fileeasy-dropzone strong {
+  font-size: 1.2rem;
+}
+
+.fileeasy-dropzone span,
+.fileeasy-dropzone small {
+  color: #9c9389;
+}
+
+.fileeasy-format-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fileeasy-format-badges span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(239, 235, 229, 0.9);
+  color: #8e867e;
+  font-size: 0.78rem;
+}
+
+.fileeasy-selection-content {
+  min-height: 0;
+}
+
+.fileeasy-selection-caption {
+  color: #b0a79f;
+  font-size: 0.86rem;
+}
+
+.fileeasy-selected-list,
+.fileeasy-upload-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fileeasy-selected-list {
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.fileeasy-selected-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fileeasy-selected-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(31, 31, 31, 0.14);
+}
+
+.fileeasy-selected-item,
+.fileeasy-upload-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(31, 31, 31, 0.06);
+  box-shadow: 0 8px 18px rgba(52, 40, 22, 0.05);
+}
+
+.fileeasy-selected-item__main,
+.fileeasy-upload-item__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.fileeasy-selected-item__main > div:last-child,
+.fileeasy-upload-item__meta {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.fileeasy-selected-item strong,
+.fileeasy-upload-item strong {
+  font-size: 0.96rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.fileeasy-selected-item span,
+.fileeasy-upload-item span,
+.fileeasy-selected-item small,
+.fileeasy-upload-item small {
+  color: #948b83;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.fileeasy-selected-item__actions,
+.fileeasy-upload-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fileeasy-selected-item__actions button,
+.fileeasy-upload-item__actions button,
+.fileeasy-inline-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #8f877f;
+  cursor: pointer;
+}
+
+.fileeasy-upload-item__status {
+  color: #8f877f;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.fileeasy-upload-item__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fileeasy-file-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(235, 239, 243, 0.92);
+  color: #7f8690;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.fileeasy-file-tag.completed {
+  background: rgba(208, 247, 223, 0.88);
+  color: #13a86a;
+}
+
+.fileeasy-file-tag.uploading,
+.fileeasy-file-tag.resuming {
+  background: rgba(224, 245, 255, 0.92);
+  color: #1582c6;
+}
+
+.fileeasy-file-tag.failed {
+  background: rgba(255, 225, 223, 0.92);
+  color: #d94c47;
+}
+
+.fileeasy-file-tag.paused {
+  background: rgba(243, 234, 214, 0.94);
+  color: #b77c27;
+}
+
+.fileeasy-empty-hint {
+  padding: 14px 2px 2px;
+  color: #b0a79f;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.fileeasy-selection-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+  background: linear-gradient(180deg, rgba(247, 244, 238, 0) 0%, rgba(247, 244, 238, 0.88) 18%, rgba(247, 244, 238, 0.98) 100%);
+}
+
+.fileeasy-selection-footer__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fileeasy-selection-footer__summary strong {
+  font-size: 0.92rem;
+  color: #4e4843;
+}
+
+.fileeasy-selection-footer__summary span {
+  color: #9b9289;
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.fileeasy-progress-summary {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border-radius: 24px;
+  background: #171717;
+  color: #ffffff;
+}
+
+.fileeasy-progress-ring {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+}
+
+.fileeasy-progress-ring__value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  border: 6px solid rgba(255, 255, 255, 0.22);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fileeasy-progress-ring span,
+.fileeasy-progress-summary__stats span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76rem;
+}
+
+.fileeasy-progress-summary__stats {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+}
+
+.fileeasy-progress-summary__stats strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.38rem;
+  line-height: 1.05;
+}
+
+.fileeasy-upload-item .fe-progress {
+  height: 6px;
+  background: rgba(31, 31, 31, 0.08);
+}
+
+.fileeasy-upload-item .fe-progress__fill {
+  background: linear-gradient(90deg, #36c691 0%, #20b596 100%);
+}
+
+.fileeasy-upload-item .fe-progress__fill--danger {
+  background: linear-gradient(90deg, #ea615a 0%, #d94c47 100%);
+}
+
+.fileeasy-inline-link {
+  color: #b0a79f;
+  font-size: 0.92rem;
+}
+
+.fe-button.fe-button--primary {
+  min-height: 56px;
+  border-radius: 18px;
+  color: #ffffff;
+  background: #1d1d1d;
+  box-shadow: none;
+}
+
+.fe-button.fe-button--primary:hover:not(:disabled) {
+  box-shadow: 0 14px 30px rgba(31, 31, 31, 0.14);
+}
+
+.fe-button.fe-button--primary:disabled {
+  opacity: 0.5;
+}
+
+@media (min-width: 860px) {
+  .fileeasy-upload-page {
+    padding-top: 48px;
+    padding-bottom: 56px;
+  }
+
+  .fileeasy-upload-shell {
+    width: min(100%, 620px);
+  }
+
+  .fileeasy-flow-card {
+    padding: 26px;
+  }
+
+  .fileeasy-progress-summary {
+    grid-template-columns: 132px minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .fileeasy-selected-list {
+    max-height: 420px;
+  }
+}

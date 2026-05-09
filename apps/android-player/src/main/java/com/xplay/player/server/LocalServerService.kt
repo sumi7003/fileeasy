@@ -3,8 +3,10 @@ package com.xplay.player.server
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Environment
 import android.os.IBinder
 import android.util.Log
+import com.xplay.player.ProductFlavorConfig
 import com.xplay.player.server.storage.DeviceEntity
 import com.xplay.player.server.storage.DevicePlaylistCrossRef
 import com.xplay.player.server.storage.LocalDatabaseProvider
@@ -16,6 +18,9 @@ import com.xplay.player.server.storage.PlaylistWithItems
 import com.xplay.player.server.storage.TransferFileEntity
 import com.xplay.player.server.storage.TransferIpQuotaEntity
 import com.xplay.player.server.storage.TransferLogEntity
+import com.xplay.player.server.storage.UploadChunkEntity
+import com.xplay.player.server.storage.UploadSessionEntity
+import com.xplay.player.utils.FileEasyUploadCore
 import com.xplay.player.utils.WebAdminInitializer
 import com.xplay.player.utils.QRCodeUtil
 import io.ktor.http.HttpStatusCode
@@ -52,6 +57,8 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -65,6 +72,15 @@ import java.time.temporal.ChronoUnit
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
+private fun isFileEasyRemoteManagementPath(path: String): Boolean {
+    return path == "/api/v1/files" ||
+        path.startsWith("/api/v1/files/") ||
+        path == "/uploads" ||
+        path.startsWith("/uploads/") ||
+        path == "/admin" ||
+        path.startsWith("/admin/")
+}
+
 class LocalServerService : Service() {
 
     private var server: io.ktor.server.engine.ApplicationEngine? = null
@@ -74,19 +90,52 @@ class LocalServerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Starting LocalServerService...")
-        startForegroundService()
+        when (intent?.action) {
+            ACTION_APP_BACKGROUND -> {
+                Log.d(TAG, "App moved to background")
+                isAppInForeground = false
+                LocalStore.init(this)
+                requestStopIfIdle()
+                return START_NOT_STICKY
+            }
+
+            ACTION_RESTART_SERVER -> {
+                Log.d(TAG, "Restarting LocalServerService by user request")
+                isAppInForeground = true
+                ensureServerStarted(forceRestart = true)
+                return START_NOT_STICKY
+            }
+
+            else -> {
+                Log.d(TAG, "Starting LocalServerService...")
+                isAppInForeground = true
+                ensureServerStarted()
+                return START_NOT_STICKY
+            }
+        }
+    }
+
+    private fun ensureServerStarted(forceRestart: Boolean = false) {
         LocalStore.init(this)
         if (LocalStore.isTransferEnabled()) {
             LocalStore.startTransferMaintenance()
         }
+
+        if (forceRestart) {
+            stopServer()
+        } else if (server != null) {
+            updateRuntimeState(ServiceRuntimeState.RUNNING)
+            return
+        }
+
+        startForegroundNotification(ServiceRuntimeState.STARTING)
+        updateRuntimeState(ServiceRuntimeState.STARTING)
         startServer()
-        return START_STICKY
     }
     
-    private fun startForegroundService() {
+    private fun startForegroundNotification(state: ServiceRuntimeState) {
         val channelId = "xplay_server_channel"
-        val channelName = "Xplay Server"
+        val channelName = ProductFlavorConfig.serverNotificationName
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val channel = android.app.NotificationChannel(
@@ -94,35 +143,27 @@ class LocalServerService : Service() {
                 channelName,
                 android.app.NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Xplay media server running"
+                description = ProductFlavorConfig.serverRunningDescription
             }
             val notificationManager = getSystemService(android.app.NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
-        
-        val notification = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            android.app.Notification.Builder(this, channelId)
-        } else {
-            @Suppress("DEPRECATION")
-            android.app.Notification.Builder(this)
-        }.apply {
-            setContentTitle("Xplay Server")
-            setContentText("Media server is running on port 3000")
-            setSmallIcon(android.R.drawable.ic_media_play)
-            setOngoing(true)
-        }.build()
-        
-        startForeground(1, notification)
+
+        startForeground(NOTIFICATION_ID, buildNotification(channelId, state))
         Log.d(TAG, "Foreground service started")
     }
 
     override fun onDestroy() {
+        updateRuntimeState(ServiceRuntimeState.STOPPED)
         super.onDestroy()
         stopServer()
     }
 
     private fun startServer() {
-        if (server != null) return
+        if (server != null) {
+            updateRuntimeState(ServiceRuntimeState.RUNNING)
+            return
+        }
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -146,14 +187,27 @@ class LocalServerService : Service() {
                     
                     intercept(io.ktor.server.application.ApplicationCallPipeline.Plugins) {
                         val path = call.request.path()
+                        if (ProductFlavorConfig.isFileEasy && isFileEasyRemoteManagementPath(path)) {
+                            call.respond(
+                                HttpStatusCode.Gone,
+                                mapOf("message" to "FileEasy v1 does not provide remote admin or file management")
+                            )
+                            finish()
+                            return@intercept
+                        }
                         if (path.startsWith("/api/v1/") && 
                             path != "/api/v1/auth/login" && 
+                            path != "/api/v1/auth/logout" && 
+                            path != "/api/v1/home/summary" &&
                             path != "/api/v1/ping" && 
                             path != "/api/v1/system/monitor" && // 允许访问监控数据
                             !path.startsWith("/api/v1/devices") && // 允许终端注册心跳
                             !path.startsWith("/api/v1/update") && // 允许检查和下载更新
                             !path.startsWith("/api/v1/playlists") // 允许设备获取播放列表
                         ) {
+                            if (!LocalStore.isPasswordConfigured()) {
+                                return@intercept
+                            }
                             val authCookie = call.request.cookies["xplay_auth"]
                             if (authCookie != "admin-token") {
                                 call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "未授权访问"))
@@ -164,106 +218,14 @@ class LocalServerService : Service() {
 
                     routing {
                         get("/") {
-                            val authCookie = call.request.cookies["xplay_auth"]
-                            if (authCookie == "admin-token") {
-                                var (bytes, contentType) = LocalStore.readWebAsset("index.html")
-                                if (contentType == ContentType.Text.Html) {
-                                    // 注入修改密码的逻辑
-                                    val html = String(bytes, Charsets.UTF_8)
-                                    val injectedScript = """
-                                        <script>
-                                            (function() {
-                                                const btn = document.createElement('button');
-                                                btn.innerText = '修改密码';
-                                                btn.style.position = 'fixed';
-                                                btn.style.bottom = '20px';
-                                                btn.style.right = '20px';
-                                                btn.style.zIndex = '9999';
-                                                btn.style.padding = '8px 12px';
-                                                btn.style.background = '#666';
-                                                btn.style.color = 'white';
-                                                btn.style.border = 'none';
-                                                btn.style.borderRadius = '4px';
-                                                btn.style.opacity = '0.5';
-                                                btn.style.cursor = 'pointer';
-                                                btn.onmouseover = () => btn.style.opacity = '1';
-                                                btn.onmouseout = () => btn.style.opacity = '0.5';
-                                                btn.onclick = () => {
-                                                    const oldPw = prompt('请输入旧密码:');
-                                                    if (!oldPw) return;
-                                                    const newPw = prompt('请输入新密码:');
-                                                    if (!newPw) return;
-                                                    fetch('/api/v1/auth/password', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw })
-                                                    }).then(res => {
-                                                        if (res.ok) alert('密码修改成功！');
-                                                        else alert('修改失败：旧密码错误');
-                                                    });
-                                                };
-                                                document.body.appendChild(btn);
-                                            })();
-                                        </script>
-                                    """.trimIndent()
-                                    val newHtml = html.replace("</body>", "$injectedScript</body>")
-                                    call.respondText(newHtml, ContentType.Text.Html)
-                                } else {
-                                    call.respondBytes(bytes, contentType = contentType)
-                                }
-                            } else {
-                                // 返回一个简单的内联登录页面
-                                val loginHtml = """
-                                    <!DOCTYPE html>
-                                    <html>
-                                    <head>
-                                        <meta charset="utf-8">
-                                        <meta name="viewport" content="width=device-width, initial-scale=1">
-                                        <title>Xplay Login</title>
-                                        <style>
-                                            body { font-family: sans-serif; display: flex; justify-content: center; align-items: flex-start; height: 100vh; margin: 0; background: #f0f2f5; padding-top: 10vh; }
-                                            .login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; text-align: center; }
-                                            h2 { color: #1a73e8; margin-bottom: 1.5rem; }
-                                            input { width: 100%; padding: 10px; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-                                            button { width: 100%; padding: 10px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-                                            button:hover { background: #1557b0; }
-                                            .error { color: red; font-size: 14px; margin-top: 10px; display: none; }
-                                        </style>
-                                    </head>
-                                    <body>
-                                        <div class="login-card">
-                                            <h2>Xplay 管理登录</h2>
-                                            <input type="text" id="un" value="admin" placeholder="用户名">
-                                            <input type="password" id="pw" placeholder="请输入服务器密码" onkeypress="if(event.key==='Enter')login()">
-                                            <button onclick="login()">进入系统</button>
-                                            <div id="err" class="error">用户名或密码错误</div>
-                                        </div>
-                                        <script>
-                                            function login() {
-                                                const un = document.getElementById('un').value;
-                                                const pw = document.getElementById('pw').value;
-                                                fetch('/api/v1/auth/login', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ username: un, password: pw })
-                                                }).then(res => {
-                                                    if (res.ok) {
-                                                        document.cookie = "xplay_auth=admin-token; path=/; max-age=86400";
-                                                        location.reload();
-                                                    } else {
-                                                        document.getElementById('err').style.display = 'block';
-                                                    }
-                                                });
-                                            }
-                                        </script>
-                                    </body>
-                                    </html>
-                                """.trimIndent()
-                                call.respondText(loginHtml, ContentType.Text.Html)
-                            }
+                            val (bytes, contentType) = LocalStore.readWebAsset("index.html", fallbackToIndex = true)
+                            call.respondBytes(bytes, contentType = contentType)
                         }
                         get("/api/v1/ping") {
                             call.respondText("pong")
+                        }
+                        get("/api/v1/home/summary") {
+                            call.respond(LocalStore.getHomeSummary { LocalStore.buildUploadPageUrl(call) })
                         }
                         post("/api/v1/auth/login") {
                             val request = call.receive<LoginRequest>()
@@ -272,6 +234,13 @@ class LocalServerService : Service() {
                             } else {
                                 call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "用户名或密码错误"))
                             }
+                        }
+                        post("/api/v1/auth/logout") {
+                            call.response.headers.append(
+                                HttpHeaders.SetCookie,
+                                "xplay_auth=; Path=/; Max-Age=0; SameSite=Lax"
+                            )
+                            call.respond(mapOf("status" to "ok"))
                         }
                         post("/api/v1/auth/password") {
                             val request = call.receive<UpdatePasswordRequest>()
@@ -282,13 +251,20 @@ class LocalServerService : Service() {
                                 call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "旧密码错误"))
                             }
                         }
-                        get("/uploads/{filename}") {
-                            val filename = call.parameters["filename"]
-                            if (filename.isNullOrBlank()) {
+                        get("/uploads/{path...}") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file downloads")
+                                )
+                                return@get
+                            }
+                            val relativePath = call.parameters.getAll("path")?.joinToString("/")?.trim('/')
+                            if (relativePath.isNullOrBlank()) {
                                 call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing filename"))
                                 return@get
                             }
-                            val file = LocalStore.getUploadFile(filename)
+                            val file = LocalStore.getUploadFile(relativePath)
                             if (!file.exists()) {
                                 call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
                                 return@get
@@ -311,6 +287,152 @@ class LocalServerService : Service() {
                         get("/api/v1/media") {
                             call.respond(LocalStore.listMedia())
                         }
+                        get("/api/v1/files") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file management")
+                                )
+                                return@get
+                            }
+                            call.respond(LocalStore.listManagedFiles())
+                        }
+                        get("/api/v1/files/{id}") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file management")
+                                )
+                                return@get
+                            }
+                            val id = call.parameters["id"]
+                            if (id.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                return@get
+                            }
+                            val file = LocalStore.getManagedFile(id)
+                            if (file == null) {
+                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                return@get
+                            }
+                            call.respond(file)
+                        }
+                        get("/api/v1/files/{id}/preview") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file preview")
+                                )
+                                return@get
+                            }
+                            val id = call.parameters["id"]
+                            if (id.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                return@get
+                            }
+                            try {
+                                val preview = LocalStore.getManagedFilePreview(id)
+                                if (preview == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                    return@get
+                                }
+                                call.response.headers.append(
+                                    HttpHeaders.ContentType,
+                                    preview.contentType.toString()
+                                )
+                                call.respondFile(preview.file)
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to (e.message ?: "当前类型不支持在线预览")))
+                            }
+                        }
+                        get("/api/v1/files/{id}/download") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file downloads")
+                                )
+                                return@get
+                            }
+                            val id = call.parameters["id"]
+                            if (id.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                return@get
+                            }
+                            val download = LocalStore.getManagedFileDownload(id)
+                            if (download == null) {
+                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                return@get
+                            }
+                            call.response.headers.append(
+                                HttpHeaders.ContentDisposition,
+                                ContentDisposition.Attachment.withParameter(
+                                    ContentDisposition.Parameters.FileName,
+                                    download.displayName
+                                ).toString()
+                            )
+                            call.response.headers.append(
+                                HttpHeaders.ContentType,
+                                download.contentType.toString()
+                            )
+                            call.respondFile(download.file)
+                        }
+                        patch("/api/v1/files/{id}") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file rename")
+                                )
+                                return@patch
+                            }
+                            val id = call.parameters["id"]
+                            if (id.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                return@patch
+                            }
+                            try {
+                                val request = call.receive<RenameFileRequest>()
+                                call.respond(LocalStore.renameManagedFile(id, request.baseName))
+                            } catch (e: NoSuchElementException) {
+                                call.respond(HttpStatusCode.NotFound, mapOf("message" to (e.message ?: "File not found")))
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to (e.message ?: "Invalid rename request")))
+                            }
+                        }
+                        delete("/api/v1/files/{id}") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote file deletion")
+                                )
+                                return@delete
+                            }
+                            val id = call.parameters["id"]
+                            if (id.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing file id"))
+                                return@delete
+                            }
+                            val deleted = LocalStore.deleteManagedFile(id)
+                            if (!deleted) {
+                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "File not found"))
+                                return@delete
+                            }
+                            call.respond(mapOf("status" to "ok"))
+                        }
+                        post("/api/v1/files/batch-delete") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote batch deletion")
+                                )
+                                return@post
+                            }
+                            val request = call.receive<BatchDeleteFilesRequest>()
+                            if (request.ids.isEmpty()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "文件列表不能为空"))
+                                return@post
+                            }
+                            call.respond(LocalStore.batchDeleteManagedFiles(request.ids))
+                        }
                         delete("/api/v1/media/{id}") {
                             val id = call.parameters["id"]
                             if (id.isNullOrBlank()) {
@@ -325,19 +447,155 @@ class LocalServerService : Service() {
                             call.respond(mapOf("status" to "ok"))
                         }
                         post("/api/v1/media/upload") {
+                            if (ProductFlavorConfig.isFileEasy) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy 已禁用旧上传接口，请使用 /api/v1/upload/* 分片上传接口")
+                                )
+                                return@post
+                            }
                             val multipart = call.receiveMultipart()
                             var result: MediaResponse? = null
-                            multipart.forEachPart { part ->
-                                if (part is PartData.FileItem && part.name == "file") {
-                                    result = LocalStore.saveUpload(part)
+                            try {
+                                multipart.forEachPart { part ->
+                                    if (part is PartData.FileItem && part.name == "file") {
+                                        result = LocalStore.saveUpload(part)
+                                    }
+                                    part.dispose()
                                 }
-                                part.dispose()
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to (e.message ?: "Invalid media upload request")))
+                                return@post
                             }
                             if (result == null) {
                                 call.respond(HttpStatusCode.BadRequest, mapOf("message" to "File is required"))
                                 return@post
                             }
                             call.respond(result!!)
+                        }
+                        post("/api/v1/upload/init") {
+                            try {
+                                val request = call.receive<UploadInitRequest>()
+                                call.respond(LocalStore.initUploadSession(request))
+                            } catch (e: IllegalArgumentException) {
+                                val message = e.message ?: "Invalid upload init request"
+                                val status = when (message) {
+                                    "单文件不能超过 4GB" -> HttpStatusCode.PayloadTooLarge
+                                    "当前文件类型不在 FileEasy v1 支持范围内" -> HttpStatusCode.BadRequest
+                                    else -> HttpStatusCode.BadRequest
+                                }
+                                call.respond(status, mapOf("message" to message))
+                            } catch (e: IllegalStateException) {
+                                call.respond(HttpStatusCode.InsufficientStorage, mapOf("message" to (e.message ?: "存储空间不足，无法开始上传")))
+                            }
+                        }
+                        post("/api/v1/upload/chunk") {
+                            val multipart = call.receiveMultipart()
+                            var uploadId: String? = null
+                            var chunkIndex: Int? = null
+                            var totalChunks: Int? = null
+                            var fileName: String? = null
+                            var fileSize: Long? = null
+                            var chunkBytes: ByteArray? = null
+
+                            multipart.forEachPart { part ->
+                                when (part) {
+                                    is PartData.FormItem -> {
+                                        when (part.name) {
+                                            "uploadId" -> uploadId = part.value
+                                            "chunkIndex" -> chunkIndex = part.value.toIntOrNull()
+                                            "totalChunks" -> totalChunks = part.value.toIntOrNull()
+                                            "fileName" -> fileName = part.value
+                                            "fileSize" -> fileSize = part.value.toLongOrNull()
+                                        }
+                                    }
+
+                                    is PartData.FileItem -> {
+                                        if (part.name == "file" || part.name == "chunk") {
+                                            chunkBytes = part.streamProvider().use { it.readBytes() }
+                                        }
+                                    }
+
+                                    else -> Unit
+                                }
+                                part.dispose()
+                            }
+
+                            if (uploadId.isNullOrBlank() || chunkIndex == null || chunkBytes == null) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing upload chunk fields"))
+                                return@post
+                            }
+
+                            try {
+                                val response = LocalStore.saveUploadChunk(
+                                    uploadId = uploadId!!,
+                                    chunkIndex = chunkIndex!!,
+                                    totalChunks = totalChunks,
+                                    fileName = fileName,
+                                    fileSize = fileSize,
+                                    chunkBytes = chunkBytes!!
+                                )
+                                call.respond(response)
+                                requestStopIfIdle()
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to (e.message ?: "Invalid upload chunk request")))
+                            } catch (e: IllegalStateException) {
+                                val message = e.message ?: "上传会话状态异常"
+                                val status = when (message) {
+                                    "上传会话已过期" -> HttpStatusCode.Gone
+                                    "存储空间不足，无法写入分片" -> HttpStatusCode.InsufficientStorage
+                                    else -> HttpStatusCode.Conflict
+                                }
+                                call.respond(status, mapOf("message" to message))
+                            }
+                        }
+                        get("/api/v1/upload/status/{uploadId}") {
+                            val uploadId = call.parameters["uploadId"]
+                            if (uploadId.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing upload id"))
+                                return@get
+                            }
+                            try {
+                                val status = LocalStore.getUploadSessionStatus(uploadId)
+                                if (status == null) {
+                                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "Upload session not found"))
+                                    return@get
+                                }
+                                call.respond(status)
+                            } catch (e: IllegalStateException) {
+                                call.respond(HttpStatusCode.Gone, mapOf("message" to (e.message ?: "上传会话已过期")))
+                            }
+                        }
+                        delete("/api/v1/upload/status/{uploadId}") {
+                            val uploadId = call.parameters["uploadId"]
+                            if (uploadId.isNullOrBlank()) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing upload id"))
+                                return@delete
+                            }
+                            val deleted = LocalStore.cancelUploadSession(uploadId)
+                            if (!deleted) {
+                                call.respond(HttpStatusCode.NotFound, mapOf("message" to "Upload session not found"))
+                                return@delete
+                            }
+                            call.respond(mapOf("status" to "ok"))
+                            requestStopIfIdle()
+                        }
+                        post("/api/v1/upload/complete") {
+                            val request = call.receive<UploadCompleteRequest>()
+                            try {
+                                call.respond(LocalStore.completeUploadSession(request.uploadId))
+                                requestStopIfIdle()
+                            } catch (e: IllegalArgumentException) {
+                                call.respond(HttpStatusCode.BadRequest, mapOf("message" to (e.message ?: "Invalid upload complete request")))
+                            } catch (e: IllegalStateException) {
+                                val message = e.message ?: "上传完成失败"
+                                val status = when (message) {
+                                    "上传会话已过期" -> HttpStatusCode.Gone
+                                    "存储空间不足，无法合并文件" -> HttpStatusCode.InsufficientStorage
+                                    else -> HttpStatusCode.Conflict
+                                }
+                                call.respond(status, mapOf("message" to message))
+                            }
                         }
                         get("/api/v1/playlists") {
                             call.respond(LocalStore.listPlaylists())
@@ -443,7 +701,7 @@ class LocalServerService : Service() {
                                     HttpHeaders.ContentDisposition,
                                     ContentDisposition.Attachment.withParameter(
                                         ContentDisposition.Parameters.FileName,
-                                        "XplayPlayer-update.apk"
+                                        "${ProductFlavorConfig.apkBaseName}-update.apk"
                                     ).toString()
                                 )
                                 call.respond(LocalFileContent(file, ContentType("application", "vnd.android.package-archive")))
@@ -459,7 +717,7 @@ class LocalServerService : Service() {
                                     HttpHeaders.ContentDisposition,
                                     ContentDisposition.Attachment.withParameter(
                                         ContentDisposition.Parameters.FileName,
-                                        "XplayPlayer-current.apk"
+                                        "${ProductFlavorConfig.apkBaseName}-current.apk"
                                     ).toString()
                                 )
                                 call.respond(LocalFileContent(appFile, ContentType("application", "vnd.android.package-archive")))
@@ -759,6 +1017,13 @@ class LocalServerService : Service() {
 
                         get("{path...}") {
                             val path = call.parameters.getAll("path")?.joinToString("/") ?: ""
+                            if (ProductFlavorConfig.isFileEasy && (path == "admin" || path.startsWith("admin/"))) {
+                                call.respond(
+                                    HttpStatusCode.Gone,
+                                    mapOf("message" to "FileEasy v1 does not provide remote admin")
+                                )
+                                return@get
+                            }
                             if (path.startsWith("api") || path.startsWith("uploads")) {
                                 call.respond(HttpStatusCode.NotFound)
                                 return@get
@@ -769,8 +1034,11 @@ class LocalServerService : Service() {
                         }
                     }
                 }
-                server?.start(wait = true)
+                server?.start(wait = false)
+                updateRuntimeState(ServiceRuntimeState.RUNNING)
             } catch (e: Exception) {
+                server = null
+                updateRuntimeState(ServiceRuntimeState.ERROR)
                 Log.e(TAG, "Failed to start server", e)
             }
         }
@@ -782,9 +1050,91 @@ class LocalServerService : Service() {
         Log.d(TAG, "Local Server stopped")
     }
 
+    private fun requestStopIfIdle() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val shouldStop = !isAppInForeground && !LocalStore.hasActiveUploadSessions()
+            if (!shouldStop) {
+                return@launch
+            }
+
+            Log.d(TAG, "Stopping service because app is backgrounded and no uploads are active")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
+    private fun buildNotification(
+        channelId: String,
+        state: ServiceRuntimeState
+    ): android.app.Notification {
+        val statusText = when (state) {
+            ServiceRuntimeState.STARTING -> "服务启动中"
+            ServiceRuntimeState.RUNNING -> "服务运行中"
+            ServiceRuntimeState.ERROR -> "服务启动失败"
+            ServiceRuntimeState.STOPPED -> "服务已停止"
+        }
+
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            android.app.Notification.Builder(this, channelId)
+        } else {
+            @Suppress("DEPRECATION")
+            android.app.Notification.Builder(this)
+        }.apply {
+            setContentTitle(ProductFlavorConfig.serverNotificationName)
+            setContentText("$statusText · ${ProductFlavorConfig.serverRunningDescription}")
+            setSmallIcon(android.R.drawable.ic_media_play)
+            setOngoing(true)
+        }.build()
+    }
+
+    private fun updateRuntimeState(state: ServiceRuntimeState) {
+        _runtimeState.value = state
+        if (state != ServiceRuntimeState.STOPPED) {
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            notificationManager.notify(NOTIFICATION_ID, buildNotification("xplay_server_channel", state))
+        }
+    }
+
     companion object {
         private const val TAG = "LocalServerService"
+        private const val NOTIFICATION_ID = 1
+        private const val ACTION_APP_BACKGROUND = "com.xplay.player.server.APP_BACKGROUND"
+        private const val ACTION_RESTART_SERVER = "com.xplay.player.server.RESTART"
+
+        private val _runtimeState = MutableStateFlow(ServiceRuntimeState.STOPPED)
+        val runtimeState = _runtimeState.asStateFlow()
+        @Volatile
+        private var isAppInForeground: Boolean = true
+
+        fun notifyAppBackground(context: Context) {
+            if (runtimeState.value == ServiceRuntimeState.STOPPED) {
+                return
+            }
+            context.startService(
+                Intent(context, LocalServerService::class.java).apply {
+                    action = ACTION_APP_BACKGROUND
+                }
+            )
+        }
+
+        fun restart(context: Context) {
+            val intent = Intent(context, LocalServerService::class.java).apply {
+                action = ACTION_RESTART_SERVER
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
     }
+}
+
+enum class ServiceRuntimeState {
+    STARTING,
+    RUNNING,
+    ERROR,
+    STOPPED
 }
 
 @Serializable
@@ -815,8 +1165,70 @@ data class LoginRequest(val username: String? = null, val password: String)
 @Serializable
 data class UpdatePasswordRequest(val oldPassword: String, val newPassword: String)
 
+@Serializable
+data class UploadInitRequest(
+    val fileName: String,
+    val fileSize: Long,
+    val mimeType: String? = null,
+    val chunkSize: Long? = null
+)
+
+@Serializable
+data class UploadInitResponse(
+    val uploadId: String,
+    val fileName: String,
+    val fileSize: Long,
+    val chunkSize: Long,
+    val totalChunks: Int,
+    val status: String,
+    val expiresAt: Long,
+    val createdAt: Long
+)
+
+@Serializable
+data class UploadChunkResponse(
+    val uploadId: String,
+    val chunkIndex: Int,
+    val uploadedChunks: Int,
+    val totalChunks: Int,
+    val uploadedChunkIndexes: List<Int>,
+    val duplicate: Boolean,
+    val status: String
+)
+
+@Serializable
+data class UploadStatusResponse(
+    val uploadId: String,
+    val fileName: String,
+    val totalChunks: Int,
+    val uploadedChunks: Int,
+    val uploadedChunkIndexes: List<Int>,
+    val missingChunkIndexes: List<Int>,
+    val status: String,
+    val expiresAt: Long,
+    val createdAt: Long
+)
+
+@Serializable
+data class UploadCompleteRequest(
+    val uploadId: String
+)
+
+@Serializable
+data class UploadCompleteResponse(
+    val uploadId: String,
+    val fileId: String,
+    val fileName: String,
+    val displayName: String,
+    val storedFilename: String,
+    val size: Long,
+    val status: String,
+    val url: String
+)
+
 object LocalStore {
     private val formatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault())
+    private val invalidRenameChars = Regex("[\\\\/:*?\"<>|]")
     private var initialized = false
     private lateinit var appContext: Context
     private var startTime = System.currentTimeMillis()
@@ -829,28 +1241,585 @@ object LocalStore {
             startTime = System.currentTimeMillis()
             initialized = true
         }
+        if (WebAdminInitializer.hasAssets(appContext)) {
+            WebAdminInitializer.copyAssetsToWebRoot(appContext)
+        }
+        startUploadMaintenance()
     }
 
     private fun getPrefs() = appContext.getSharedPreferences("xplay_settings", Context.MODE_PRIVATE)
 
+    fun isPasswordConfigured(): Boolean {
+        return !getPrefs().getString("server_password", null).isNullOrBlank()
+    }
+
     fun verifyPassword(username: String?, password: String): Boolean {
         val savedUsername = "admin" // 固定为 admin
-        val savedPassword = getPrefs().getString("server_password", "123456")
+        val savedPassword = getPrefs().getString("server_password", null)
+        if (savedPassword.isNullOrBlank()) {
+            return username == null || username == savedUsername
+        }
         return (username == null || username == savedUsername) && savedPassword == password
     }
 
+    fun getCurrentPassword(): String {
+        return getPrefs().getString("server_password", null).orEmpty()
+    }
+
     fun updatePassword(newPassword: String) {
-        getPrefs().edit().putString("server_password", newPassword).apply()
+        val normalized = newPassword.trim()
+        if (normalized.isBlank()) {
+            getPrefs().edit().remove("server_password").apply()
+            return
+        }
+        getPrefs().edit().putString("server_password", normalized).apply()
     }
 
     private fun db() = LocalDatabaseProvider.get()
 
-    private fun getUploadDir(): File {
+    private fun getLegacyUploadDir(): File {
         val uploads = File(appContext.filesDir, "uploads")
         if (!uploads.exists()) {
             uploads.mkdirs()
         }
         return uploads
+    }
+
+    private fun getUploadDir(): File {
+        val externalDocumentsDir = appContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+        val root = File(externalDocumentsDir ?: File(appContext.filesDir, "documents"), "FileEasy")
+        if (!root.exists()) {
+            root.mkdirs()
+        }
+        return root
+    }
+
+    private fun getUploadCategoryDir(category: String): File {
+        val folderName = when (category) {
+            "document" -> "document"
+            "image" -> "image"
+            "video" -> "video"
+            "audio" -> "audio"
+            "archive" -> "archive"
+            else -> "other"
+        }
+        return File(getUploadDir(), folderName).also { dir ->
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+        }
+    }
+
+    private fun buildStoredUploadPath(category: String, storedFilename: String): String {
+        return "${getUploadCategoryDir(category).name}/$storedFilename"
+    }
+
+    private fun getUploadSessionRootDir(): File {
+        val dir = File(appContext.filesDir, "upload_sessions")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    private fun getUploadSessionDir(uploadId: String): File {
+        val dir = File(getUploadSessionRootDir(), uploadId)
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    private fun getUploadChunkFile(uploadId: String, chunkIndex: Int): File {
+        return File(getUploadSessionDir(uploadId), "chunk-$chunkIndex.part")
+    }
+
+    private fun getUploadMergedTempFile(uploadId: String): File {
+        return File(getUploadSessionDir(uploadId), "merge.tmp")
+    }
+
+    private fun getAvailableUploadBytes(): Long {
+        val stat = android.os.StatFs(getUploadDir().path)
+        return stat.blockSizeLong * stat.availableBlocksLong
+    }
+
+    private fun ensureUploadStorageAvailable(requiredBytes: Long, errorMessage: String) {
+        if (getAvailableUploadBytes() < requiredBytes) {
+            throw IllegalStateException(errorMessage)
+        }
+    }
+
+    private fun normalizeClientFileName(fileName: String): String = FileEasyUploadCore.normalizeClientFileName(fileName)
+
+    private fun extractExtension(fileName: String): String = FileEasyUploadCore.extractExtension(fileName)
+
+    private fun getUploadCategory(extension: String): String? = FileEasyUploadCore.getUploadCategory(extension)
+
+    private fun isPreviewSupported(extension: String, category: String): Boolean =
+        FileEasyUploadCore.isPreviewSupported(extension, category)
+
+    private fun resolveMimeCategory(mimeType: String?): String? = FileEasyUploadCore.resolveMimeCategory(mimeType)
+
+    private fun persistBytesAtomically(target: File, bytes: ByteArray) {
+        val parent = requireNotNull(target.parentFile)
+        if (!parent.exists()) {
+            parent.mkdirs()
+        }
+        val tempFile = File(parent, "${target.name}.tmp")
+        tempFile.outputStream().buffered().use { output ->
+            output.write(bytes)
+            output.flush()
+        }
+        if (target.exists()) {
+            target.delete()
+        }
+        if (!tempFile.renameTo(target)) {
+            tempFile.copyTo(target, overwrite = true)
+            tempFile.delete()
+        }
+    }
+
+    private fun moveFile(source: File, target: File) {
+        val parent = requireNotNull(target.parentFile)
+        if (!parent.exists()) {
+            parent.mkdirs()
+        }
+        if (!source.renameTo(target)) {
+            source.copyTo(target, overwrite = true)
+            source.delete()
+        }
+    }
+
+    private fun safeDeleteRecursively(file: File) {
+        if (!file.exists()) return
+        if (file.isDirectory) {
+            file.listFiles()?.forEach { child ->
+                safeDeleteRecursively(child)
+            }
+        }
+        file.delete()
+    }
+
+    // ----------------------------
+    // FileEasy upload: config & helpers
+    // ----------------------------
+    private const val UPLOAD_CHUNK_SIZE_BYTES: Long = FileEasyUploadCore.CHUNK_SIZE_BYTES
+    private const val UPLOAD_MAX_FILE_BYTES: Long = FileEasyUploadCore.MAX_FILE_BYTES
+    private const val UPLOAD_SESSION_RETENTION_MS: Long = 24L * 60 * 60 * 1000
+    private val uploadMaintenanceStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun startUploadMaintenance() {
+        if (!uploadMaintenanceStarted.compareAndSet(false, true)) return
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                cleanupExpiredUploadSessions()
+            } catch (e: Exception) {
+                Log.e("LocalStore", "Upload cleanup on start failed", e)
+            }
+            while (true) {
+                try {
+                    cleanupExpiredUploadSessions()
+                } catch (e: Exception) {
+                    Log.e("LocalStore", "Upload periodic cleanup failed", e)
+                }
+                delay(60 * 60 * 1000L)
+            }
+        }
+    }
+
+    private suspend fun cleanupExpiredUploadSessions() {
+        val now = System.currentTimeMillis()
+        val expiredSessions = db().uploadSessionDao().getExpiredSessions(now)
+        expiredSessions.forEach { session ->
+            db().uploadSessionDao().deleteChunksByUploadId(session.uploadId)
+            db().uploadSessionDao().deleteSessionById(session.uploadId)
+            safeDeleteRecursively(File(getUploadSessionRootDir(), session.uploadId))
+        }
+    }
+
+    private suspend fun loadUploadSession(uploadId: String): UploadSessionEntity? {
+        val session = db().uploadSessionDao().getSessionById(uploadId) ?: return null
+        if (session.expiresAt < System.currentTimeMillis()) {
+            db().uploadSessionDao().deleteChunksByUploadId(uploadId)
+            db().uploadSessionDao().deleteSessionById(uploadId)
+            safeDeleteRecursively(File(getUploadSessionRootDir(), uploadId))
+            throw IllegalStateException("上传会话已过期")
+        }
+        return session
+    }
+
+    private suspend fun buildUploadStatusResponse(session: UploadSessionEntity): UploadStatusResponse {
+        val uploadedChunkIndexes = db().uploadSessionDao().getChunkIndexes(session.uploadId)
+        val missingChunkIndexes = FileEasyUploadCore.computeMissingChunkIndexes(
+            totalChunks = session.totalChunks,
+            uploadedChunkIndexes = uploadedChunkIndexes
+        )
+        return UploadStatusResponse(
+            uploadId = session.uploadId,
+            fileName = session.fileName,
+            totalChunks = session.totalChunks,
+            uploadedChunks = uploadedChunkIndexes.size,
+            uploadedChunkIndexes = uploadedChunkIndexes,
+            missingChunkIndexes = missingChunkIndexes,
+            status = session.status,
+            expiresAt = session.expiresAt,
+            createdAt = session.createdAt
+        )
+    }
+
+    suspend fun listActiveUploadSessions(limit: Int = 4): List<HomeUploadTaskResponse> {
+        val now = System.currentTimeMillis()
+        return db().uploadSessionDao().getActiveSessions(now, limit).map { session ->
+            val progress = if (session.totalChunks <= 0) {
+                0
+            } else {
+                ((session.uploadedChunks.toDouble() / session.totalChunks.toDouble()) * 100.0).toInt().coerceIn(0, 99)
+            }
+            val uploadedBytes = (session.uploadedChunks.toLong() * session.chunkSize).coerceAtMost(session.fileSize)
+            HomeUploadTaskResponse(
+                uploadId = session.uploadId,
+                fileName = session.finalDisplayName ?: session.fileName,
+                uploadedChunks = session.uploadedChunks,
+                totalChunks = session.totalChunks,
+                status = session.status,
+                progress = progress,
+                fileSize = session.fileSize,
+                uploadedBytes = uploadedBytes,
+                createdAt = session.createdAt,
+                updatedAt = session.updatedAt
+            )
+        }
+    }
+
+    suspend fun listRecentManagedFiles(limit: Int = 4): List<HomeRecentFileResponse> {
+        return db().mediaDao().getAll().take(limit).map { media ->
+            HomeRecentFileResponse(
+                id = media.id,
+                fileName = media.displayName.ifBlank { media.originalName },
+                category = media.category.ifBlank { media.type },
+                size = media.size,
+                createdAt = media.createdAt,
+                relativeDirectory = media.filename.substringBeforeLast('/', "").ifBlank { null }
+            )
+        }
+    }
+
+    suspend fun getHomeSummary(uploadUrlBuilder: () -> String): HomeSummaryResponse {
+        return HomeSummaryResponse(
+            uploadUrl = uploadUrlBuilder(),
+            passwordRequired = isPasswordConfigured(),
+            activeUploads = listActiveUploadSessions(),
+            recentFiles = listRecentManagedFiles()
+        )
+    }
+
+    suspend fun hasActiveUploadSessions(): Boolean {
+        return db().uploadSessionDao().getActiveSessions(System.currentTimeMillis(), 1).isNotEmpty()
+    }
+
+    fun getFileEasyFolderHint(): String = "文件/FileEasy"
+
+    fun getFileEasyFolderCategoriesHint(): String = "文档 / 图片 / 视频 / 音频 / 压缩包"
+
+    private fun validateUploadInit(fileName: String, fileSize: Long, mimeType: String?): Pair<String, String> {
+        val validation = FileEasyUploadCore.validateUploadInit(fileName, fileSize, mimeType)
+        return validation.normalizedFileName to validation.category
+    }
+
+    suspend fun initUploadSession(request: UploadInitRequest): UploadInitResponse {
+        val (normalizedName, _) = validateUploadInit(
+            fileName = request.fileName,
+            fileSize = request.fileSize,
+            mimeType = request.mimeType
+        )
+        ensureUploadStorageAvailable(
+            requiredBytes = request.fileSize.coerceAtLeast(UPLOAD_CHUNK_SIZE_BYTES),
+            errorMessage = "存储空间不足，无法开始上传"
+        )
+
+        val now = System.currentTimeMillis()
+        val uploadId = UUID.randomUUID().toString()
+        val totalChunks = FileEasyUploadCore.calculateTotalChunks(request.fileSize, UPLOAD_CHUNK_SIZE_BYTES)
+        val session = UploadSessionEntity(
+            uploadId = uploadId,
+            fileName = normalizedName,
+            fileSize = request.fileSize,
+            chunkSize = UPLOAD_CHUNK_SIZE_BYTES,
+            totalChunks = totalChunks,
+            uploadedChunks = 0,
+            status = "initialized",
+            mimeType = request.mimeType?.trim()?.takeIf { it.isNotEmpty() },
+            expiresAt = now + UPLOAD_SESSION_RETENTION_MS,
+            createdAt = now,
+            updatedAt = now
+        )
+        db().uploadSessionDao().insertSession(session)
+        getUploadSessionDir(uploadId)
+        return UploadInitResponse(
+            uploadId = uploadId,
+            fileName = session.fileName,
+            fileSize = session.fileSize,
+            chunkSize = session.chunkSize,
+            totalChunks = session.totalChunks,
+            status = session.status,
+            expiresAt = session.expiresAt,
+            createdAt = session.createdAt
+        )
+    }
+
+    suspend fun saveUploadChunk(
+        uploadId: String,
+        chunkIndex: Int,
+        totalChunks: Int?,
+        fileName: String?,
+        fileSize: Long?,
+        chunkBytes: ByteArray
+    ): UploadChunkResponse {
+        val session = loadUploadSession(uploadId)
+            ?: throw IllegalArgumentException("Upload session not found")
+        if (chunkIndex < 0 || chunkIndex >= session.totalChunks) {
+            throw IllegalArgumentException("Invalid chunk index")
+        }
+        if (totalChunks != null && totalChunks != session.totalChunks) {
+            throw IllegalArgumentException("Chunk total does not match upload session")
+        }
+        if (fileName != null && normalizeClientFileName(fileName) != session.fileName) {
+            throw IllegalArgumentException("Chunk file name does not match upload session")
+        }
+        if (fileSize != null && fileSize != session.fileSize) {
+            throw IllegalArgumentException("Chunk file size does not match upload session")
+        }
+        if (session.status == "completed") {
+            throw IllegalStateException("上传会话已完成")
+        }
+
+        val chunkFile = getUploadChunkFile(uploadId, chunkIndex)
+        val existingChunkIndexes = db().uploadSessionDao().getChunkIndexes(uploadId)
+        val duplicate = existingChunkIndexes.contains(chunkIndex) && chunkFile.exists()
+        if (!duplicate) {
+            ensureUploadStorageAvailable(
+                requiredBytes = chunkBytes.size.toLong().coerceAtLeast(1L),
+                errorMessage = "存储空间不足，无法写入分片"
+            )
+            persistBytesAtomically(chunkFile, chunkBytes)
+            db().uploadSessionDao().insertChunk(
+                UploadChunkEntity(
+                    uploadId = uploadId,
+                    chunkIndex = chunkIndex,
+                    size = chunkBytes.size.toLong(),
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }
+
+        val uploadedChunkIndexes = db().uploadSessionDao().getChunkIndexes(uploadId)
+        val updatedSession = session.copy(
+            uploadedChunks = uploadedChunkIndexes.size,
+            status = if (uploadedChunkIndexes.size == session.totalChunks) "ready" else "uploading",
+            updatedAt = System.currentTimeMillis()
+        )
+        db().uploadSessionDao().insertSession(updatedSession)
+        return UploadChunkResponse(
+            uploadId = uploadId,
+            chunkIndex = chunkIndex,
+            uploadedChunks = uploadedChunkIndexes.size,
+            totalChunks = session.totalChunks,
+            uploadedChunkIndexes = uploadedChunkIndexes,
+            duplicate = duplicate,
+            status = updatedSession.status
+        )
+    }
+
+    suspend fun getUploadSessionStatus(uploadId: String): UploadStatusResponse? {
+        val session = loadUploadSession(uploadId) ?: return null
+        return buildUploadStatusResponse(session)
+    }
+
+    suspend fun cancelUploadSession(uploadId: String): Boolean {
+        val session = db().uploadSessionDao().getSessionById(uploadId) ?: return false
+        db().uploadSessionDao().deleteChunksByUploadId(uploadId)
+        db().uploadSessionDao().deleteSessionById(uploadId)
+        safeDeleteRecursively(File(getUploadSessionRootDir(), session.uploadId))
+        return true
+    }
+
+    private suspend fun resolveFinalDisplayName(originalName: String): String {
+        val extension = extractExtension(originalName)
+        val baseName = if (extension.isBlank()) {
+            originalName
+        } else {
+            originalName.removeSuffix(".$extension")
+        }
+        var candidate = originalName
+        var suffix = 1
+        while (db().mediaDao().countByDisplayName(candidate) > 0) {
+            candidate = if (extension.isBlank()) {
+                "$baseName($suffix)"
+            } else {
+                "$baseName($suffix).$extension"
+            }
+            suffix += 1
+        }
+        return candidate
+    }
+
+    private suspend fun resolveRenamedDisplayName(
+        media: MediaEntity,
+        requestedBaseName: String
+    ): String {
+        val extension = media.extension.ifBlank {
+            extractExtension(media.displayName.ifBlank { media.originalName })
+        }
+        val baseName = requestedBaseName.trim()
+        var candidate = if (extension.isBlank()) {
+            baseName
+        } else {
+            "$baseName.$extension"
+        }
+        var suffix = 1
+        while (db().mediaDao().countByDisplayNameExcludingId(candidate, media.id) > 0) {
+            candidate = if (extension.isBlank()) {
+                "$baseName($suffix)"
+            } else {
+                "$baseName($suffix).$extension"
+            }
+            suffix += 1
+        }
+        return candidate
+    }
+
+    private fun validateRenameBaseName(baseName: String, currentExtension: String) {
+        val normalized = baseName.trim()
+        if (normalized.isBlank()) {
+            throw IllegalArgumentException("主文件名不能为空")
+        }
+        if (invalidRenameChars.containsMatchIn(normalized)) {
+            throw IllegalArgumentException("主文件名不能包含 \\ / : * ? \" < > |")
+        }
+        if (currentExtension.isNotBlank() && normalized.contains('.')) {
+            throw IllegalArgumentException("重命名时不允许修改扩展名")
+        }
+    }
+
+    private fun buildUploadCompleteResponse(
+        session: UploadSessionEntity,
+        media: MediaEntity
+    ): UploadCompleteResponse {
+        val displayName = media.displayName.ifBlank { media.originalName }
+        return UploadCompleteResponse(
+            uploadId = session.uploadId,
+            fileId = media.id,
+            fileName = session.fileName,
+            displayName = displayName,
+            storedFilename = media.filename,
+            size = media.size,
+            status = session.status,
+            url = media.url
+        )
+    }
+
+    suspend fun completeUploadSession(uploadId: String): UploadCompleteResponse {
+        val session = loadUploadSession(uploadId)
+            ?: throw IllegalArgumentException("Upload session not found")
+        if (session.status == "completed") {
+            val finalFileId = session.finalFileId
+                ?: throw IllegalStateException("上传完成记录缺失")
+            val media = db().mediaDao().getById(finalFileId)
+                ?: throw IllegalStateException("上传完成记录缺失")
+            return buildUploadCompleteResponse(session, media)
+        }
+
+        val uploadedChunkIndexes = db().uploadSessionDao().getChunkIndexes(uploadId)
+        val missingChunkIndexes = FileEasyUploadCore.computeMissingChunkIndexes(
+            totalChunks = session.totalChunks,
+            uploadedChunkIndexes = uploadedChunkIndexes
+        )
+        if (missingChunkIndexes.isNotEmpty()) {
+            throw IllegalStateException("上传分片不完整")
+        }
+
+        ensureUploadStorageAvailable(
+            requiredBytes = session.fileSize.coerceAtLeast(1L),
+            errorMessage = "存储空间不足，无法合并文件"
+        )
+
+        val mergedTempFile = getUploadMergedTempFile(uploadId)
+        var finalFile: File? = null
+        try {
+            var mergedSize = 0L
+            mergedTempFile.outputStream().buffered().use { output ->
+                for (index in 0 until session.totalChunks) {
+                    val chunkFile = getUploadChunkFile(uploadId, index)
+                    if (!chunkFile.exists()) {
+                        throw IllegalStateException("上传分片不完整")
+                    }
+                    chunkFile.inputStream().buffered().use { input ->
+                        mergedSize += input.copyTo(output)
+                    }
+                }
+                output.flush()
+            }
+            if (mergedSize != session.fileSize || mergedTempFile.length() != session.fileSize) {
+                throw IllegalStateException("合并后的文件大小校验失败")
+            }
+
+            val finalDisplayName = resolveFinalDisplayName(session.fileName)
+            val extension = extractExtension(session.fileName)
+            val category = getUploadCategory(extension) ?: "other"
+            val storedFilename = if (extension.isNotBlank()) {
+                "${UUID.randomUUID()}.$extension"
+            } else {
+                UUID.randomUUID().toString()
+            }
+            finalFile = File(getUploadCategoryDir(category), storedFilename)
+            moveFile(mergedTempFile, finalFile)
+            val storedPath = buildStoredUploadPath(category, storedFilename)
+
+            val now = System.currentTimeMillis()
+            val media = MediaEntity(
+                id = UUID.randomUUID().toString(),
+                originalName = session.fileName,
+                displayName = finalDisplayName,
+                filename = storedPath,
+                url = "/uploads/$storedPath",
+                type = category,
+                extension = extension,
+                mimeType = session.mimeType ?: "application/octet-stream",
+                category = category,
+                previewSupported = isPreviewSupported(extension, category),
+                size = finalFile.length(),
+                createdAt = now,
+                updatedAt = now
+            )
+            db().mediaDao().insert(media)
+
+            val completedSession = session.copy(
+                uploadedChunks = session.totalChunks,
+                status = "completed",
+                updatedAt = now,
+                finalFileId = media.id,
+                finalDisplayName = finalDisplayName
+            )
+            db().uploadSessionDao().insertSession(completedSession)
+
+            for (index in 0 until session.totalChunks) {
+                getUploadChunkFile(uploadId, index).delete()
+            }
+
+            return buildUploadCompleteResponse(completedSession, media)
+        } catch (e: Exception) {
+            if (mergedTempFile.exists()) {
+                mergedTempFile.delete()
+            }
+            if (finalFile != null && finalFile.exists()) {
+                finalFile.delete()
+            }
+            if (e is IllegalArgumentException || e is IllegalStateException) {
+                throw e
+            }
+            Log.e("LocalStore", "Failed to complete upload session: $uploadId", e)
+            throw IllegalStateException("上传完成失败")
+        }
     }
 
     // ----------------------------
@@ -978,6 +1947,12 @@ object LocalStore {
         return "$scheme://$host/t/$fileId"
     }
 
+    fun buildUploadPageUrl(call: io.ktor.server.application.ApplicationCall): String {
+        val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
+        val host = call.request.header("X-Forwarded-Host") ?: call.request.header("Host") ?: "localhost:3000"
+        return "$scheme://$host/"
+    }
+
     fun getClientIp(call: io.ktor.server.application.ApplicationCall): String? {
         val forwarded = call.request.header("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim()
         val realIp = call.request.header("X-Real-IP")
@@ -1042,7 +2017,7 @@ object LocalStore {
                   </div>
                 </div>
                 <div class="muted" style="text-align:center; margin-top:12px">
-                  Powered by Xplay
+                  Powered by ${ProductFlavorConfig.productName}
                 </div>
               </div>
               <script>
@@ -1306,7 +2281,14 @@ object LocalStore {
     }
 
     fun getUploadFile(filename: String): File {
-        return File(getUploadDir(), filename)
+        val normalized = filename.trim().removePrefix("/")
+        val currentFile = File(getUploadDir(), normalized)
+        if (currentFile.exists()) {
+            return currentFile
+        }
+
+        val legacyFile = File(getLegacyUploadDir(), normalized.substringAfterLast('/'))
+        return if (legacyFile.exists()) legacyFile else currentFile
     }
 
     fun getUpdateApkFile(): File {
@@ -1361,6 +2343,10 @@ object LocalStore {
     }
 
     fun readWebAsset(path: String, fallbackToIndex: Boolean = false): Pair<ByteArray, ContentType> {
+        if (WebAdminInitializer.hasAssets(appContext) && !WebAdminInitializer.isInitialized(appContext)) {
+            WebAdminInitializer.copyAssetsToWebRoot(appContext)
+        }
+
         val contentType = contentTypeForPath(path)
         val webRoot = WebAdminInitializer.getWebRootDir(appContext)
         val targetFile = File(webRoot, path)
@@ -1390,13 +2376,31 @@ object LocalStore {
     suspend fun saveUpload(part: PartData.FileItem): MediaResponse {
         val originalName = part.originalFileName ?: "file"
         Log.d("LocalStore", "Starting upload: $originalName")
-        val extension = originalName.substringAfterLast('.', "")
+        val fileSizeHint = part.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+        val mime = part.contentType?.toString() ?: "application/octet-stream"
+        val extension = extractExtension(originalName)
+        val fileEasyValidation = if (ProductFlavorConfig.isFileEasy) {
+            FileEasyUploadCore.validateUploadInit(
+                fileName = originalName,
+                fileSize = fileSizeHint ?: 0L,
+                mimeType = mime
+            )
+        } else {
+            null
+        }
         val filename = if (extension.isNotBlank()) {
             "${UUID.randomUUID()}.$extension"
         } else {
             UUID.randomUUID().toString()
         }
-        val file = getUploadFile(filename)
+        val category = when {
+            fileEasyValidation != null -> fileEasyValidation.category
+            getUploadCategory(extension) != null -> getUploadCategory(extension)!!
+            mime.startsWith("video") -> "video"
+            else -> "image"
+        }
+        val storedPath = buildStoredUploadPath(category, filename)
+        val file = File(getUploadCategoryDir(category), filename)
         
         try {
             part.streamProvider().use { input ->
@@ -1422,16 +2426,26 @@ object LocalStore {
             throw e
         }
 
-        val mime = part.contentType?.toString() ?: "application/octet-stream"
-        val type = if (mime.startsWith("video")) "video" else "image"
+        if (ProductFlavorConfig.isFileEasy && file.length() > UPLOAD_MAX_FILE_BYTES) {
+            if (file.exists()) file.delete()
+            throw IllegalArgumentException("单文件不能超过 4GB")
+        }
+
+        val now = System.currentTimeMillis()
         val media = MediaEntity(
             id = UUID.randomUUID().toString(),
             originalName = originalName,
-            filename = filename,
-            url = "/uploads/$filename",
-            type = type,
+            displayName = originalName,
+            filename = storedPath,
+            url = "/uploads/$storedPath",
+            type = category,
+            extension = extension,
+            mimeType = mime,
+            category = category,
+            previewSupported = isPreviewSupported(extension, category),
             size = file.length(),
-            createdAt = System.currentTimeMillis()
+            createdAt = now,
+            updatedAt = now
         )
         db().mediaDao().insert(media)
         return media.toResponse()
@@ -1450,6 +2464,75 @@ object LocalStore {
         db().playlistDao().deleteItemsByMediaId(id)
         db().mediaDao().deleteById(id)
         return true
+    }
+
+    suspend fun listManagedFiles(): List<ManagedFileResponse> {
+        return db().mediaDao().getAll().map { it.toManagedResponse() }
+    }
+
+    suspend fun getManagedFile(id: String): ManagedFileResponse? {
+        return db().mediaDao().getById(id)?.toManagedResponse()
+    }
+
+    suspend fun renameManagedFile(id: String, baseName: String): ManagedFileResponse {
+        val media = db().mediaDao().getById(id) ?: throw NoSuchElementException("文件不存在")
+        val currentExtension = media.extension.ifBlank {
+            extractExtension(media.displayName.ifBlank { media.originalName })
+        }
+        validateRenameBaseName(baseName, currentExtension)
+        val finalDisplayName = resolveRenamedDisplayName(media, baseName)
+        val updated = media.copy(
+            displayName = finalDisplayName,
+            updatedAt = System.currentTimeMillis()
+        )
+        db().mediaDao().insert(updated)
+        return updated.toManagedResponse()
+    }
+
+    suspend fun deleteManagedFile(id: String): Boolean {
+        return deleteMedia(id)
+    }
+
+    suspend fun batchDeleteManagedFiles(ids: List<String>): BatchDeleteFilesResponse {
+        val deletedIds = mutableListOf<String>()
+        ids.distinct().forEach { id ->
+            if (deleteManagedFile(id)) {
+                deletedIds += id
+            }
+        }
+        return BatchDeleteFilesResponse(
+            deletedIds = deletedIds,
+            deletedCount = deletedIds.size
+        )
+    }
+
+    suspend fun getManagedFilePreview(id: String): ManagedFileBinaryResponse? {
+        val media = db().mediaDao().getById(id) ?: return null
+        if (!media.previewSupported) {
+            throw IllegalArgumentException("当前类型不支持在线预览")
+        }
+        val file = getUploadFile(media.filename)
+        if (!file.exists()) {
+            return null
+        }
+        return ManagedFileBinaryResponse(
+            file = file,
+            contentType = media.toContentType(),
+            displayName = media.displayName.ifBlank { media.originalName }
+        )
+    }
+
+    suspend fun getManagedFileDownload(id: String): ManagedFileBinaryResponse? {
+        val media = db().mediaDao().getById(id) ?: return null
+        val file = getUploadFile(media.filename)
+        if (!file.exists()) {
+            return null
+        }
+        return ManagedFileBinaryResponse(
+            file = file,
+            contentType = media.toContentType(),
+            displayName = media.displayName.ifBlank { media.originalName }
+        )
     }
 
     suspend fun createPlaylist(request: CreatePlaylistRequest): PlaylistResponse {
@@ -1646,13 +2729,48 @@ object LocalStore {
     private fun MediaEntity.toResponse(): MediaResponse {
         return MediaResponse(
             id = id,
-            originalName = originalName,
+            originalName = displayName.ifBlank { originalName },
             filename = filename,
             url = url,
             type = type,
             size = size,
             createdAt = formatter.format(Instant.ofEpochMilli(createdAt))
         )
+    }
+
+    private fun MediaEntity.toManagedResponse(): ManagedFileResponse {
+        return ManagedFileResponse(
+            id = id,
+            originalName = originalName,
+            displayName = displayName.ifBlank { originalName },
+            storedFilename = filename,
+            filename = filename,
+            url = url,
+            type = type,
+            category = category,
+            extension = extension,
+            mimeType = mimeType,
+            previewSupported = previewSupported,
+            size = size,
+            createdAt = formatter.format(Instant.ofEpochMilli(createdAt)),
+            updatedAt = formatter.format(Instant.ofEpochMilli(updatedAt.takeIf { it > 0L } ?: createdAt))
+        )
+    }
+
+    private fun MediaEntity.toContentType(): ContentType {
+        return when (extension.lowercase()) {
+            "pdf" -> ContentType.Application.Pdf
+            "jpg", "jpeg" -> ContentType.Image.JPEG
+            "png" -> ContentType.Image.PNG
+            "gif" -> ContentType.Image.GIF
+            "webp" -> ContentType("image", "webp")
+            "mp4" -> ContentType.Video.MP4
+            "mov" -> ContentType.Video.QuickTime
+            "mp3" -> ContentType("audio", "mpeg")
+            "wav" -> ContentType("audio", "wav")
+            "m4a" -> ContentType("audio", "mp4")
+            else -> runCatching { ContentType.parse(mimeType) }.getOrDefault(ContentType.Application.OctetStream)
+        }
     }
 
     private fun PlaylistWithItems.toResponse(): PlaylistResponse {
@@ -1799,6 +2917,46 @@ data class MediaResponse(
 )
 
 @Serializable
+data class ManagedFileResponse(
+    val id: String,
+    val originalName: String,
+    val displayName: String,
+    val storedFilename: String,
+    val filename: String,
+    val url: String,
+    val type: String,
+    val category: String,
+    val extension: String,
+    val mimeType: String,
+    val previewSupported: Boolean,
+    val size: Long,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+@Serializable
+data class RenameFileRequest(
+    val baseName: String
+)
+
+@Serializable
+data class BatchDeleteFilesRequest(
+    val ids: List<String>
+)
+
+@Serializable
+data class BatchDeleteFilesResponse(
+    val deletedIds: List<String>,
+    val deletedCount: Int
+)
+
+data class ManagedFileBinaryResponse(
+    val file: File,
+    val contentType: ContentType,
+    val displayName: String
+)
+
+@Serializable
 data class PlaylistItemResponse(
     val id: String,
     val order: Int,
@@ -1893,6 +3051,38 @@ data class StorageInfoResponse(
 data class ServerInfoResponse(
     val uptime: Long,
     val requestCount: Long
+)
+
+@Serializable
+data class HomeSummaryResponse(
+    val uploadUrl: String,
+    val passwordRequired: Boolean,
+    val activeUploads: List<HomeUploadTaskResponse>,
+    val recentFiles: List<HomeRecentFileResponse>
+)
+
+@Serializable
+data class HomeUploadTaskResponse(
+    val uploadId: String,
+    val fileName: String,
+    val uploadedChunks: Int,
+    val totalChunks: Int,
+    val status: String,
+    val progress: Int,
+    val fileSize: Long,
+    val uploadedBytes: Long,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Serializable
+data class HomeRecentFileResponse(
+    val id: String,
+    val fileName: String,
+    val category: String,
+    val size: Long,
+    val createdAt: Long,
+    val relativeDirectory: String? = null
 )
 
 // --- Transfer Data Classes ---

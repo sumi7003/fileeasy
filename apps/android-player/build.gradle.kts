@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.Copy
+
 plugins {
     id("com.android.application") version "8.4.2"
     id("org.jetbrains.kotlin.android") version "1.9.22"
@@ -19,6 +21,36 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    flavorDimensions += "product"
+
+    productFlavors {
+        create("xplay") {
+            dimension = "product"
+            applicationId = "com.xplay.player"
+            buildConfigField("boolean", "IS_FILEEASY", "false")
+            buildConfigField("boolean", "PLAYER_FEATURE_ENABLED", "true")
+            buildConfigField("String", "PRODUCT_NAME", "\"Xplay\"")
+            buildConfigField("String", "CONTROL_CENTER_NAME", "\"控制中心\"")
+            buildConfigField("String", "LOGIN_SUBTITLE", "\"欢迎进入 Xplay 终端管理系统\"")
+            buildConfigField("String", "ADMIN_ENTRY_LABEL", "\"管理素材与播放列表\"")
+            buildConfigField("String", "SERVER_NOTIFICATION_NAME", "\"Xplay Server\"")
+        }
+
+        create("fileeasy") {
+            dimension = "product"
+            applicationId = "com.xplay.fileeasy"
+            versionName = "V1.0"
+            buildConfigField("boolean", "IS_FILEEASY", "true")
+            buildConfigField("boolean", "PLAYER_FEATURE_ENABLED", "false")
+            buildConfigField("String", "PRODUCT_NAME", "\"易传输\"")
+            buildConfigField("String", "CONTROL_CENTER_NAME", "\"文件服务\"")
+            buildConfigField("String", "LOGIN_SUBTITLE", "\"欢迎进入易传输局域网文件服务\"")
+            buildConfigField("String", "ADMIN_ENTRY_LABEL", "\"进入文件管理后台\"")
+            buildConfigField("String", "SERVER_NOTIFICATION_NAME", "\"易传输服务\"")
+        }
     }
 
     composeOptions {
@@ -42,6 +74,27 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+val syncWebAdminAssets by tasks.registering(Copy::class) {
+    val webAdminDist = layout.projectDirectory.dir("../web-admin/dist")
+    val targetAssetsDir = layout.projectDirectory.dir("src/main/assets/web-admin")
+
+    from(webAdminDist)
+    into(targetAssetsDir)
+
+    doFirst {
+        val distDir = webAdminDist.asFile
+        require(distDir.exists()) {
+            "Missing web-admin dist assets at ${distDir.absolutePath}. Run `npm run build` in apps/web-admin first."
+        }
+    }
+}
+
+tasks.matching { task ->
+    task.name == "preBuild" || task.name.startsWith("pre") && task.name.endsWith("Build")
+}.configureEach {
+    dependsOn(syncWebAdminAssets)
 }
 
 dependencies {
@@ -86,4 +139,6 @@ dependencies {
 
     // ZXing for QR Code
     implementation("com.google.zxing:core:3.5.2")
+
+    testImplementation("junit:junit:4.13.2")
 }
