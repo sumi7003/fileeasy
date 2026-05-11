@@ -1,10 +1,14 @@
 package com.xplay.player.server
 
 import android.app.Service
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.IBinder
+import android.provider.MediaStore
 import android.util.Log
 import com.xplay.player.ProductFlavorConfig
 import com.xplay.player.server.storage.DeviceEntity
@@ -21,6 +25,7 @@ import com.xplay.player.server.storage.TransferLogEntity
 import com.xplay.player.server.storage.UploadChunkEntity
 import com.xplay.player.server.storage.UploadSessionEntity
 import com.xplay.player.utils.FileEasyUploadCore
+import com.xplay.player.utils.LanAddressResolver
 import com.xplay.player.utils.WebAdminInitializer
 import com.xplay.player.utils.QRCodeUtil
 import io.ktor.http.HttpStatusCode
@@ -1229,6 +1234,7 @@ data class UploadCompleteResponse(
 object LocalStore {
     private val formatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault())
     private val invalidRenameChars = Regex("[\\\\/:*?\"<>|]")
+    private const val FILE_EASY_DOWNLOAD_ROOT = "易传输"
     private var initialized = false
     private lateinit var appContext: Context
     private var startTime = System.currentTimeMillis()
@@ -1306,8 +1312,8 @@ object LocalStore {
         return root
     }
 
-    private fun getUploadCategoryDir(category: String): File {
-        val folderName = when (category) {
+    private fun getUploadCategoryFolderName(category: String): String {
+        return when (category) {
             "document" -> "document"
             "image" -> "image"
             "video" -> "video"
@@ -1315,6 +1321,10 @@ object LocalStore {
             "archive" -> "archive"
             else -> "other"
         }
+    }
+
+    private fun getUploadCategoryDir(category: String): File {
+        val folderName = getUploadCategoryFolderName(category)
         return File(getUploadDir(), folderName).also { dir ->
             if (!dir.exists()) {
                 dir.mkdirs()
@@ -1323,7 +1333,7 @@ object LocalStore {
     }
 
     private fun buildStoredUploadPath(category: String, storedFilename: String): String {
-        return "${getUploadCategoryDir(category).name}/$storedFilename"
+        return "${getUploadCategoryFolderName(category)}/$storedFilename"
     }
 
     private fun getUploadSessionRootDir(): File {
@@ -1351,7 +1361,12 @@ object LocalStore {
     }
 
     private fun getAvailableUploadBytes(): Long {
-        val stat = android.os.StatFs(getUploadDir().path)
+        val storageDir = if (ProductFlavorConfig.isFileEasy) {
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        } else {
+            getUploadDir()
+        }
+        val stat = android.os.StatFs(storageDir.path)
         return stat.blockSizeLong * stat.availableBlocksLong
     }
 
@@ -1400,6 +1415,54 @@ object LocalStore {
             source.copyTo(target, overwrite = true)
             source.delete()
         }
+    }
+
+    private fun getFileEasyDownloadRelativePath(category: String): String {
+        return "${Environment.DIRECTORY_DOWNLOADS}/$FILE_EASY_DOWNLOAD_ROOT/${getUploadCategoryFolderName(category)}"
+    }
+
+    private fun writeFileEasyDownloadFile(
+        category: String,
+        displayName: String,
+        mimeType: String,
+        sourceFile: File
+    ): Long {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = appContext.contentResolver
+            var uri: Uri? = null
+            try {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, displayName)
+                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                    put(MediaStore.Downloads.RELATIVE_PATH, getFileEasyDownloadRelativePath(category))
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IllegalStateException("无法创建下载目录文件")
+                resolver.openOutputStream(uri)?.use { output ->
+                    sourceFile.inputStream().buffered().use { input ->
+                        input.copyTo(output)
+                    }
+                    output.flush()
+                } ?: throw IllegalStateException("无法写入下载目录文件")
+                resolver.update(
+                    uri,
+                    ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) },
+                    null,
+                    null
+                )
+                return sourceFile.length()
+            } catch (e: Exception) {
+                uri?.let { resolver.delete(it, null, null) }
+                throw e
+            }
+        }
+
+        val legacyBaseDir = appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            ?: File(appContext.filesDir, "downloads")
+        val targetFile = File(legacyBaseDir, "$FILE_EASY_DOWNLOAD_ROOT/${getUploadCategoryFolderName(category)}/$displayName")
+        moveFile(sourceFile, targetFile)
+        return targetFile.length()
     }
 
     private fun safeDeleteRecursively(file: File) {
@@ -1558,7 +1621,7 @@ object LocalStore {
         return db().uploadSessionDao().getActiveSessions(System.currentTimeMillis(), 1).isNotEmpty()
     }
 
-    fun getFileEasyFolderHint(): String = "内部存储/易传输"
+    fun getFileEasyFolderHint(): String = "下载/易传输"
 
     fun getFileEasyFolderCategoriesHint(): String = "文档 / 图片 / 视频 / 音频 / 压缩包"
 
@@ -1807,13 +1870,29 @@ object LocalStore {
             val finalDisplayName = resolveFinalDisplayName(session.fileName)
             val extension = extractExtension(session.fileName)
             val category = getUploadCategory(extension) ?: "other"
-            val storedFilename = if (extension.isNotBlank()) {
+            val storedFilename = if (ProductFlavorConfig.isFileEasy) {
+                finalDisplayName
+            } else if (extension.isNotBlank()) {
                 "${UUID.randomUUID()}.$extension"
             } else {
                 UUID.randomUUID().toString()
             }
-            finalFile = File(getUploadCategoryDir(category), storedFilename)
-            moveFile(mergedTempFile, finalFile)
+            val finalSize = if (ProductFlavorConfig.isFileEasy) {
+                writeFileEasyDownloadFile(
+                    category = category,
+                    displayName = finalDisplayName,
+                    mimeType = session.mimeType ?: "application/octet-stream",
+                    sourceFile = mergedTempFile
+                ).also {
+                    if (mergedTempFile.exists()) {
+                        mergedTempFile.delete()
+                    }
+                }
+            } else {
+                finalFile = File(getUploadCategoryDir(category), storedFilename)
+                moveFile(mergedTempFile, finalFile)
+                finalFile.length()
+            }
             val storedPath = buildStoredUploadPath(category, storedFilename)
 
             val now = System.currentTimeMillis()
@@ -1828,7 +1907,7 @@ object LocalStore {
                 mimeType = session.mimeType ?: "application/octet-stream",
                 category = category,
                 previewSupported = isPreviewSupported(extension, category),
-                size = finalFile.length(),
+                size = finalSize,
                 createdAt = now,
                 updatedAt = now
             )
@@ -1982,16 +2061,43 @@ object LocalStore {
         return data.fileId == fileId && data.ip == ip
     }
 
-    fun buildShareUrl(call: io.ktor.server.application.ApplicationCall, fileId: String): String {
+    private fun isLocalOnlyHost(hostHeader: String): Boolean {
+        val host = if (hostHeader.startsWith("[")) {
+            hostHeader.substringAfter("[").substringBefore("]")
+        } else {
+            hostHeader.substringBefore(":")
+        }.trim().lowercase()
+
+        return host.isBlank() ||
+            host == "localhost" ||
+            host == "::1" ||
+            host == "0.0.0.0" ||
+            host == "127.0.0.1" ||
+            host.startsWith("127.")
+    }
+
+    private fun buildRequestBaseUrl(call: io.ktor.server.application.ApplicationCall): String {
         val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
-        val host = call.request.header("X-Forwarded-Host") ?: call.request.header("Host") ?: "localhost:3000"
-        return "$scheme://$host/t/$fileId"
+        val host = call.request.header("X-Forwarded-Host") ?: call.request.header("Host")
+        val lanUrl = if (initialized) {
+            LanAddressResolver.resolve(appContext).host?.let { "http://$it:3000" }
+        } else {
+            null
+        }
+
+        return if (host.isNullOrBlank() || isLocalOnlyHost(host)) {
+            lanUrl ?: "$scheme://localhost:3000"
+        } else {
+            "$scheme://$host"
+        }
+    }
+
+    fun buildShareUrl(call: io.ktor.server.application.ApplicationCall, fileId: String): String {
+        return "${buildRequestBaseUrl(call)}/t/$fileId"
     }
 
     fun buildUploadPageUrl(call: io.ktor.server.application.ApplicationCall): String {
-        val scheme = call.request.header("X-Forwarded-Proto") ?: "http"
-        val host = call.request.header("X-Forwarded-Host") ?: call.request.header("Host") ?: "localhost:3000"
-        return "$scheme://$host/"
+        return "${buildRequestBaseUrl(call)}/"
     }
 
     fun getClientIp(call: io.ktor.server.application.ApplicationCall): String? {
@@ -2429,7 +2535,7 @@ object LocalStore {
         } else {
             null
         }
-        val filename = if (extension.isNotBlank()) {
+        val generatedFilename = if (extension.isNotBlank()) {
             "${UUID.randomUUID()}.$extension"
         } else {
             UUID.randomUUID().toString()
@@ -2440,8 +2546,18 @@ object LocalStore {
             mime.startsWith("video") -> "video"
             else -> "image"
         }
-        val storedPath = buildStoredUploadPath(category, filename)
-        val file = File(getUploadCategoryDir(category), filename)
+        val displayName = if (ProductFlavorConfig.isFileEasy) {
+            resolveFinalDisplayName(originalName)
+        } else {
+            originalName
+        }
+        val storedFilename = if (ProductFlavorConfig.isFileEasy) displayName else generatedFilename
+        val storedPath = buildStoredUploadPath(category, storedFilename)
+        val file = if (ProductFlavorConfig.isFileEasy) {
+            File.createTempFile("fileeasy-upload-", ".tmp", getUploadSessionRootDir())
+        } else {
+            File(getUploadCategoryDir(category), storedFilename)
+        }
         
         try {
             part.streamProvider().use { input ->
@@ -2472,11 +2588,28 @@ object LocalStore {
             throw IllegalArgumentException("单文件不能超过 4GB")
         }
 
+        val savedSize = if (ProductFlavorConfig.isFileEasy) {
+            try {
+                writeFileEasyDownloadFile(
+                    category = category,
+                    displayName = displayName,
+                    mimeType = mime,
+                    sourceFile = file
+                )
+            } finally {
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+        } else {
+            file.length()
+        }
+
         val now = System.currentTimeMillis()
         val media = MediaEntity(
             id = UUID.randomUUID().toString(),
             originalName = originalName,
-            displayName = originalName,
+            displayName = displayName,
             filename = storedPath,
             url = "/uploads/$storedPath",
             type = category,
@@ -2484,7 +2617,7 @@ object LocalStore {
             mimeType = mime,
             category = category,
             previewSupported = isPreviewSupported(extension, category),
-            size = file.length(),
+            size = savedSize,
             createdAt = now,
             updatedAt = now
         )

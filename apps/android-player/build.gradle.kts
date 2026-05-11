@@ -1,4 +1,18 @@
 import org.gradle.api.tasks.Copy
+import java.util.Properties
+
+val localEnvProperties = Properties().apply {
+    val localEnvFile = layout.projectDirectory.file(".env.local").asFile
+    if (localEnvFile.exists()) {
+        localEnvFile.inputStream().use(::load)
+    }
+}
+
+fun localSigningProperty(name: String): String? {
+    return providers.gradleProperty(name).orNull
+        ?: providers.environmentVariable(name).orNull
+        ?: localEnvProperties.getProperty(name)?.trim()?.takeIf { it.isNotEmpty() }
+}
 
 plugins {
     id("com.android.application") version "8.4.2"
@@ -25,6 +39,27 @@ android {
     }
 
     flavorDimensions += "product"
+
+    signingConfigs {
+        create("localRelease") {
+            val storePath = localSigningProperty("ANDROID_RELEASE_STORE_FILE")
+            val storePasswordValue = localSigningProperty("ANDROID_RELEASE_STORE_PASSWORD")
+            val keyAliasValue = localSigningProperty("ANDROID_RELEASE_KEY_ALIAS")
+            val keyPasswordValue = localSigningProperty("ANDROID_RELEASE_KEY_PASSWORD")
+
+            if (
+                storePath != null &&
+                storePasswordValue != null &&
+                keyAliasValue != null &&
+                keyPasswordValue != null
+            ) {
+                storeFile = file(storePath)
+                storePassword = storePasswordValue
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
+            }
+        }
+    }
 
     productFlavors {
         create("xplay") {
@@ -73,6 +108,12 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("localRelease")
+        }
     }
 }
 

@@ -12,9 +12,7 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Bundle
-import android.os.Environment
 import android.provider.DocumentsContract
-import android.provider.Settings
 import android.util.Log
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -99,7 +97,15 @@ private val XplayBrandColor = Color(0xFF1677FF)
 private val XplayBrandColorDark = Color(0xFF003EB3)
 private val FileEasyBrandColor = Color(0xFF1F8A57)
 private val FileEasyBrandColorDark = Color(0xFF0F5C38)
-private const val FILE_EASY_ROOT_FOLDER = "易传输"
+private const val FILE_EASY_ROOT_FOLDER = "Download/易传输"
+
+private fun formatLanSegment(host: String?): String? {
+    if (host.isNullOrBlank()) return null
+    val octets = host.split(".")
+    if (octets.size != 4 || octets.any { it.toIntOrNull() == null }) return null
+    return "${octets[0]}.${octets[1]}.${octets[2]}.x"
+}
+
 class MainActivity : ComponentActivity() {
     private lateinit var repository: DeviceRepository
     var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -231,10 +237,6 @@ class MainActivity : ComponentActivity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1002)
         }
-        if (ProductFlavorConfig.isFileEasy) {
-            ensureFileEasyStoragePermission()
-        }
-        
         setContent {
             MaterialTheme {
                 Surface(
@@ -293,28 +295,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-}
-
-private fun Context.ensureFileEasyStoragePermission() {
-    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R ||
-        Environment.isExternalStorageManager()
-    ) {
-        return
-    }
-
-    val appSpecificIntent = Intent(
-        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-        Uri.parse("package:$packageName")
-    ).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    val fallbackIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    runCatching { startActivity(appSpecificIntent) }
-        .recoverCatching { startActivity(fallbackIntent) }
-        .onFailure { Log.w("MainActivity", "Failed to open all-files access settings", it) }
 }
 
 private fun startLocalServer(context: Context) {
@@ -602,6 +582,7 @@ fun FileEasyShellScreen() {
     }
     val latestReceiveDirectory = recentFiles.firstOrNull()?.relativeDirectory
     val networkNameLabel = lanAccessInfo.networkName ?: "等待网络"
+    val networkSegmentLabel = formatLanSegment(lanAccessInfo.host)
     val preciseWifiName = lanAccessInfo.networkName?.takeUnless { it == "Wi-Fi" || it.isBlank() }
     val pendingUploads = uploadQueue.filter { it.status != "completed" }
     val currentUploadQueue = uploadQueue.filter { task ->
@@ -626,13 +607,15 @@ fun FileEasyShellScreen() {
     val homeStateDescription = when (homeState) {
         "receiving" -> "文件传输进行中，App 退到后台后会在最后一个任务完成后自动结束服务。"
         "completed" -> "本轮传输已经结束，最新接收的文件会保留在下方列表里。"
-        else -> "手机必须连接到同一网络或当前热点后，才能扫码发送文件。"
+        else -> "手机或电脑必须连接到同一网络或当前热点后，才能扫码或打开网址发送文件。"
     }
     val waitingNetworkInline = when (lanAccessInfo.source) {
-        LanAddressSource.WIFI -> preciseWifiName?.let { "当前网络：$it，手机需接入同一网络后再扫码" } ?: "手机需接入同一网络后再扫码"
-        LanAddressSource.HOTSPOT -> "当前热点：$networkNameLabel，手机需接入当前热点后再扫码"
-        LanAddressSource.OTHER -> "当前网络：$networkNameLabel，手机需接入同一局域网后再扫码"
-        LanAddressSource.UNAVAILABLE -> "请先让设备连接 Wi‑Fi 或热点，再让手机接入同网后扫码"
+        LanAddressSource.WIFI -> preciseWifiName?.let {
+            "当前网络：$it，手机/电脑需接入同一网络后再扫码或打开网址"
+        } ?: "手机/电脑需接入同一网络后再扫码或打开网址"
+        LanAddressSource.HOTSPOT -> "当前热点：$networkNameLabel，手机/电脑需接入当前热点后再扫码或打开网址"
+        LanAddressSource.OTHER -> "当前网络：$networkNameLabel，手机/电脑需接入同一局域网后再扫码或打开网址"
+        LanAddressSource.UNAVAILABLE -> "请先让设备连接 Wi‑Fi 或热点，再让手机/电脑接入同网后扫码"
     }
     val refreshLanAccessInfo = remember(context) {
         {
@@ -873,7 +856,7 @@ fun FileEasyShellScreen() {
                                         )
                                         FileEasyRecordShortcut(
                                             recentFileCount = recentFiles.size,
-                                            onOpenFolder = { openFileEasyFolder(context, latestReceiveDirectory) }
+                                            onOpenFolder = { openFileEasyFolder(context) }
                                         )
                                     }
                                 }
@@ -1071,7 +1054,8 @@ fun FileEasyShellScreen() {
                     if (homeState == "waiting") {
                         YiTransferScanIllustrationCard(
                             useWideLayout = useWideTopSection,
-                            accessUrl = uploadUrl ?: lanAccessInfo.uploadUrl.orEmpty()
+                            accessUrl = uploadUrl ?: lanAccessInfo.uploadUrl.orEmpty(),
+                            networkSegment = networkSegmentLabel
                         )
                     }
                 }
@@ -1191,7 +1175,8 @@ private fun YiTransferLogoMark(
 @Composable
 private fun YiTransferScanIllustrationCard(
     useWideLayout: Boolean,
-    accessUrl: String
+    accessUrl: String,
+    networkSegment: String?
 ) {
     val maxImageWidth = if (useWideLayout) 300.dp else 220.dp
 
@@ -1209,9 +1194,16 @@ private fun YiTransferScanIllustrationCard(
         ) {
             Text(
                 text = "电脑访问网页：$accessUrl",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 color = Color(0xFF5E6F67),
                 fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = networkSegment?.let { "电脑需连接同一 Wi-Fi/热点，当前网段：$it" }
+                    ?: "电脑需连接同一 Wi-Fi/热点后访问",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF7D8C85),
                 textAlign = TextAlign.Center
             )
             Image(
