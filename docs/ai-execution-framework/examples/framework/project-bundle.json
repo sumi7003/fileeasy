@@ -1,0 +1,18 @@
+{
+  "projectId": "ai-execution-framework",
+  "projectName": "AI Execution Framework",
+  "bundleVersion": "v1.0",
+  "bundleStatus": "final",
+  "requiredDocumentKinds": [
+    "workflow"
+  ],
+  "documents": [
+    {
+      "id": "ai-execution-framework-workflow-v1.0",
+      "kind": "workflow",
+      "version": "v1.0",
+      "status": "final",
+      "path": "docs/ai-execution-framework/README.md"
+    }
+  ]
+}

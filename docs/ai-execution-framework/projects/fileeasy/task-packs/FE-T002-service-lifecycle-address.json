@@ -1,0 +1,87 @@
+{
+  "taskId": "FE-T002",
+  "taskName": "Service lifecycle and LAN address strategy",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "implementation",
+  "status": "accepted",
+  "ownerRole": "execution-ai",
+  "goal": "Implement the FileEasy service lifecycle, startup recovery, and LAN address plus QR refresh strategy defined in the design document.",
+  "nonGoals": [
+    "Do not implement chunk upload logic.",
+    "Do not redesign the upload or admin web pages.",
+    "Do not change file metadata storage."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0",
+    "fileeasy-wireframe-spec-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/android-player/src/main/java/com/xplay/player/MainActivity.kt",
+    "apps/android-player/src/main/java/com/xplay/player/BootReceiver.kt",
+    "apps/android-player/src/main/java/com/xplay/player/server/LocalServerService.kt",
+    "apps/android-player/src/main/java/com/xplay/player/utils",
+    "apps/android-player/src/main/AndroidManifest.xml"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-T002-service-lifecycle-address.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-T002-service-lifecycle-address.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T002-pm-checklist.md"
+  ],
+  "forbiddenPaths": [
+    "apps/web-admin",
+    "apps/_deprecated_server",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "lifecycle implementation",
+    "address and qr refresh implementation",
+    "verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When the device has a usable Wi-Fi or hotspot IPv4 address, the homepage should show a LAN upload address and a QR code that targets the upload page."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "When the device has no usable LAN address, the homepage should clearly show that no upload address is available and should not present a misleading QR code."
+    },
+    {
+      "id": "AC-3",
+      "type": "scenario",
+      "text": "When the device reboots, FileEasy should restore the local service according to the lifecycle rules in the design document."
+    }
+  ],
+  "verificationCommands": [
+    "GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "fileeasy",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "FE-T002: FileEasy service lifecycle and LAN address strategy",
+    "prTitle": "FE-T002: FileEasy service lifecycle and LAN address strategy",
+    "prBodyPath": "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T002-pm-checklist.md"
+  },
+  "handoffQuestions": [
+    "List only platform or device-specific lifecycle risks that require PM awareness."
+  ]
+}

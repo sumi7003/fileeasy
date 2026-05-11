@@ -1,0 +1,34 @@
+{
+  "projectId": "replace-with-project-id",
+  "projectName": "Replace With Project Name",
+  "bundleVersion": "v1.0",
+  "bundleStatus": "draft",
+  "requiredDocumentKinds": [
+    "prd",
+    "design",
+    "workflow"
+  ],
+  "documents": [
+    {
+      "id": "replace-prd-id",
+      "kind": "prd",
+      "version": "v1.0",
+      "status": "final",
+      "path": "docs/path-to-prd.md"
+    },
+    {
+      "id": "replace-design-id",
+      "kind": "design",
+      "version": "v1.0",
+      "status": "final",
+      "path": "docs/path-to-design.md"
+    },
+    {
+      "id": "replace-workflow-id",
+      "kind": "workflow",
+      "version": "v1.0",
+      "status": "final",
+      "path": "docs/path-to-workflow.md"
+    }
+  ]
+}

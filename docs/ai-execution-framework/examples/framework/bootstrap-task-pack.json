@@ -1,0 +1,81 @@
+{
+  "taskId": "AIFRAMEWORK-BOOTSTRAP-001",
+  "taskName": "Bootstrap AI execution framework assets",
+  "projectId": "ai-execution-framework",
+  "projectBundlePath": "docs/ai-execution-framework/examples/framework/project-bundle.json",
+  "stage": "framework-bootstrap",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Create the reusable framework assets, validation scripts, and repository entry points needed to gate AI implementation work.",
+  "nonGoals": [
+    "Do not add any FileEasy business feature implementation.",
+    "Do not modify application runtime behavior outside framework plumbing."
+  ],
+  "documentRefs": [
+    "ai-execution-framework-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/ai-execution-framework",
+    "scripts/ai-framework",
+    "package.json"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/examples/framework"
+  ],
+  "forbiddenPaths": [
+    "apps"
+  ],
+  "deliverables": [
+    "framework docs",
+    "validation scripts",
+    "package scripts"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When a project bundle is structurally complete, the bundle validator should pass."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "When a required document is not ready, strict bundle validation should fail and explain why."
+    },
+    {
+      "id": "AC-3",
+      "type": "command",
+      "text": "npm run ai:validate:bundle -- docs/ai-execution-framework/examples/fileeasy/project-bundle.json"
+    },
+    {
+      "id": "AC-4",
+      "type": "command",
+      "text": "npm run ai:validate:task -- docs/ai-execution-framework/examples/framework/bootstrap-task-pack.json"
+    }
+  ],
+  "verificationCommands": [
+    "npm run ai:validate:bundle -- docs/ai-execution-framework/examples/fileeasy/project-bundle.json",
+    "npm run ai:validate:task -- docs/ai-execution-framework/examples/framework/bootstrap-task-pack.json"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "codex/ai-execution-framework-bootstrap",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": true,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "AIFRAMEWORK-BOOTSTRAP-001: bootstrap AI execution framework",
+    "prTitle": "AIFRAMEWORK-BOOTSTRAP-001: bootstrap AI execution framework",
+    "prBodyPath": "docs/ai-execution-framework/templates/publish-report.template.md"
+  },
+  "handoffQuestions": [
+    "Should the framework later enforce naming conventions between file names and document header versions?"
+  ]
+}

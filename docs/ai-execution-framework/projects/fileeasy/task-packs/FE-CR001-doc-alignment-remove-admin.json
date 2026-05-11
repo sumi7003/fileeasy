@@ -1,0 +1,73 @@
+{
+  "taskId": "FE-CR001-doc-alignment-remove-admin",
+  "taskName": "Requirement change alignment - remove remote admin page from FileEasy v1",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "change-request-doc-alignment",
+  "status": "approved",
+  "ownerRole": "documentation-ai",
+  "goal": "Update FileEasy v1 source-of-truth documents so the remote /admin management page and remote file-management capabilities are removed from v1 scope.",
+  "nonGoals": [
+    "Do not change application code in this task.",
+    "Do not add replacement remote management features.",
+    "Do not re-expand v1 with preview, rename, delete, batch delete, or remote download.",
+    "Do not change the upload-only core requirements except where they referenced remote admin."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0",
+    "fileeasy-visual-spec-v1.0",
+    "fileeasy-wireframe-spec-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "docs/FileEasy-AI-Workflow-v1.0.md",
+    "docs/FileEasy-Visual-Interaction-Spec-v1.0.md",
+    "docs/FileEasy-Wireframe-Spec-v1.0.md",
+    "docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Integration-Checklist.md",
+    "docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Next-Phase-Plan.md",
+    "docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Overall-Acceptance-Report.md"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/change-requests/FE-CR001-remove-remote-admin-page.md",
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-CR001-doc-alignment-remove-admin.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-CR001-doc-alignment-remove-admin.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-CR001-doc-alignment-remove-admin-pm-acceptance.md"
+  ],
+  "forbiddenPaths": [
+    "apps/android-player",
+    "apps/web-admin",
+    "apps/_deprecated_server"
+  ],
+  "deliverables": [
+    "updated PRD/design/workflow/supporting specs",
+    "updated integration checklist and next-phase plan",
+    "focused documentation handoff"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "manual",
+      "text": "PRD and design documents no longer require remote /admin, remote preview, remote rename, remote delete, batch delete, or remote file download for FileEasy v1."
+    },
+    {
+      "id": "AC-2",
+      "type": "manual",
+      "text": "The documents clearly state that / is the only remote user-facing page in v1 and that APK-local controls handle service status, upload QR/address, and password change."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "Acceptance checklist and next-phase plan are updated so future validation focuses on upload page, password/login, chunk/resume, foreground service stability, same-WiFi, hotspot, network switching, interrupted upload, and reboot recovery."
+    }
+  ],
+  "verificationCommands": [
+    "rg -n \"/admin|管理页|管理后台|预览|重命名|批量删除|下载\" docs/FileEasy-PRD-v1.0.md docs/FileEasy-Design-v1.0.md docs/FileEasy-AI-Workflow-v1.0.md docs/FileEasy-Visual-Interaction-Spec-v1.0.md docs/FileEasy-Wireframe-Spec-v1.0.md docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Integration-Checklist.md docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Next-Phase-Plan.md docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Overall-Acceptance-Report.md"
+  ],
+  "handoffQuestions": [
+    "List every remaining document mention of remote admin or remote management and explain whether it is historical, removed-scope, or still actionable.",
+    "Confirm whether the implementation task FE-V105 can proceed without ambiguity."
+  ]
+}

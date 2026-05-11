@@ -593,6 +593,7 @@ fun FileEasyShellScreen() {
     var totalStorageBytes by remember { mutableStateOf(0L) }
     var freeStorageBytes by remember { mutableStateOf(0L) }
     var preferWaitingAfterCompletion by remember { mutableStateOf(true) }
+    var scanSessionStartedAt by remember { mutableStateOf(System.currentTimeMillis()) }
 
     val uploadUrl = if (serviceState == ServiceRuntimeState.RUNNING) {
         lanAccessInfo.uploadUrl
@@ -602,13 +603,19 @@ fun FileEasyShellScreen() {
     val latestReceiveDirectory = recentFiles.firstOrNull()?.relativeDirectory
     val networkNameLabel = lanAccessInfo.networkName ?: "等待网络"
     val preciseWifiName = lanAccessInfo.networkName?.takeUnless { it == "Wi-Fi" || it.isBlank() }
-    val completedUploads = uploadQueue.filter { it.status == "completed" }
-    val receivingUploads = uploadQueue.filter { it.status == "receiving" }
-    val queuedUploads = uploadQueue.filter { it.status == "queued" }
     val pendingUploads = uploadQueue.filter { it.status != "completed" }
+    val currentUploadQueue = uploadQueue.filter { task ->
+        task.status != "completed" || task.updatedAt >= scanSessionStartedAt
+    }
+    val completedUploads = currentUploadQueue.filter { it.status == "completed" }
+    val receivingUploads = currentUploadQueue.filter { it.status == "receiving" }
+    val queuedUploads = currentUploadQueue.filter { it.status == "queued" }
+    val latestRecentFile = recentFiles.firstOrNull()
+    val hasCurrentSessionCompletion = latestRecentFile?.createdAt?.let { it >= scanSessionStartedAt } == true ||
+        completedUploads.any { it.updatedAt >= scanSessionStartedAt }
     val homeState = when {
         pendingUploads.isNotEmpty() -> "receiving"
-        recentFiles.isNotEmpty() && !preferWaitingAfterCompletion -> "completed"
+        hasCurrentSessionCompletion || (recentFiles.isNotEmpty() && !preferWaitingAfterCompletion) -> "completed"
         else -> "waiting"
     }
     val homeStateTitle = when (homeState) {
@@ -739,15 +746,15 @@ fun FileEasyShellScreen() {
     } else {
         0f
     }
-    val totalUploadBytes = uploadQueue.sumOf { it.fileSize }
-    val uploadedBytes = uploadQueue.sumOf { it.uploadedBytes }.coerceAtMost(totalUploadBytes)
+    val totalUploadBytes = currentUploadQueue.sumOf { it.fileSize }
+    val uploadedBytes = currentUploadQueue.sumOf { it.uploadedBytes }.coerceAtMost(totalUploadBytes)
     val totalUploadProgress = if (totalUploadBytes > 0L) {
         (uploadedBytes.toFloat() / totalUploadBytes.toFloat()).coerceIn(0f, 0.99f)
     } else {
         0f
     }
     val remainingUploadBytes = (totalUploadBytes - uploadedBytes).coerceAtLeast(0L)
-    val earliestUploadCreatedAt = uploadQueue.minOfOrNull { it.createdAt } ?: System.currentTimeMillis()
+    val earliestUploadCreatedAt = currentUploadQueue.minOfOrNull { it.createdAt } ?: System.currentTimeMillis()
     val uploadElapsedMs = (System.currentTimeMillis() - earliestUploadCreatedAt).coerceAtLeast(1L)
     val uploadBytesPerSecond = if (uploadedBytes > 0L) {
         (uploadedBytes.toDouble() * 1000.0) / uploadElapsedMs.toDouble()
@@ -842,12 +849,7 @@ fun FileEasyShellScreen() {
                                             color = Color(0xFF222222),
                                             textAlign = TextAlign.Center
                                         )
-                                        Text(
-                                            text = waitingNetworkInline,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color(0xFF6F8175),
-                                            textAlign = TextAlign.Center
-                                        )
+                                        FileEasyNetworkGuide(text = waitingNetworkInline)
                                         qrCodeBitmap?.let { bitmap ->
                                             Surface(
                                                 shape = RoundedCornerShape(30.dp),
@@ -868,6 +870,10 @@ fun FileEasyShellScreen() {
                                             storageProgress = storageProgress,
                                             usedStorageBytes = usedStorageBytes,
                                             totalStorageBytes = totalStorageBytes
+                                        )
+                                        FileEasyRecordShortcut(
+                                            recentFileCount = recentFiles.size,
+                                            onOpenFolder = { openFileEasyFolder(context, latestReceiveDirectory) }
                                         )
                                     }
                                 }
@@ -900,10 +906,10 @@ fun FileEasyShellScreen() {
                                             progressLabel = "${(totalUploadProgress * 100).toInt().coerceIn(0, 100)}%",
                                             remainingLabel = estimatedRemainingMs?.let(::formatRemainingDuration) ?: "计算中",
                                             speedLabel = formatTransferRate(uploadBytesPerSecond),
-                                            fileCountLabel = "${uploadQueue.size} 个任务",
+                                            fileCountLabel = "${currentUploadQueue.size} 个任务",
                                             uploadedLabel = formatStorageValue(uploadedBytes),
                                             totalLabel = formatStorageValue(totalUploadBytes),
-                                            totalCount = uploadQueue.size,
+                                            totalCount = currentUploadQueue.size,
                                             completedCount = completedUploads.size,
                                             receivingCount = receivingUploads.size,
                                             queuedCount = queuedUploads.size
@@ -938,7 +944,7 @@ fun FileEasyShellScreen() {
                                                 }
                                             }
                                         }
-                                        if (uploadQueue.isEmpty()) {
+                                        if (currentUploadQueue.isEmpty()) {
                                             FileEasyPanelSection(
                                                 title = "接收列表"
                                             ) {
@@ -999,7 +1005,10 @@ fun FileEasyShellScreen() {
                                                 )
                                             }
                                             Button(
-                                                onClick = { preferWaitingAfterCompletion = true },
+                                                onClick = {
+                                                    scanSessionStartedAt = System.currentTimeMillis()
+                                                    preferWaitingAfterCompletion = true
+                                                },
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .height(58.dp),
@@ -1199,9 +1208,10 @@ private fun YiTransferScanIllustrationCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "电脑访问：网页地址 $accessUrl",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF7D8A82),
+                text = "电脑访问网页：$accessUrl",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF5E6F67),
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
             Image(
@@ -1213,6 +1223,68 @@ private fun YiTransferScanIllustrationCard(
                     .aspectRatio(1448f / 1086f),
                 contentScale = ContentScale.Fit
             )
+        }
+    }
+}
+
+@Composable
+private fun FileEasyNetworkGuide(text: String) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFFEAF7F1),
+        border = BorderStroke(1.dp, Color(0xFFCFE8DC))
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color(0xFF315D48),
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun FileEasyRecordShortcut(
+    recentFileCount: Int,
+    onOpenFolder: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White.copy(alpha = 0.72f),
+        border = BorderStroke(1.dp, Color(0xFFE0E9E4))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "接收记录",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color(0xFF25342D),
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (recentFileCount > 0) "最近 $recentFileCount 个文件" else "暂无接收文件",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF7D8A82)
+                )
+            }
+            TextButton(onClick = onOpenFolder) {
+                Text(
+                    text = "打开目录",
+                    fontWeight = FontWeight.SemiBold,
+                    color = FileEasyBrandColor
+                )
+            }
         }
     }
 }

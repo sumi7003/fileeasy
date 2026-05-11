@@ -1,0 +1,64 @@
+{
+  "taskId": "AIFRAMEWORK-PUBLISH-DRYRUN-001",
+  "taskName": "Exercise ai publish flow in dry-run mode",
+  "projectId": "ai-execution-framework",
+  "projectBundlePath": "docs/ai-execution-framework/examples/framework/project-bundle.json",
+  "stage": "framework-validation",
+  "status": "accepted",
+  "ownerRole": "execution-ai",
+  "goal": "Validate the end-to-end ai publish flow without performing any remote write.",
+  "nonGoals": [
+    "Do not create a real commit.",
+    "Do not push to the remote.",
+    "Do not create a real pull request."
+  ],
+  "documentRefs": [
+    "ai-execution-framework-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/ai-execution-framework",
+    "scripts/ai-framework",
+    "package.json"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/examples/framework"
+  ],
+  "forbiddenPaths": [
+    "apps"
+  ],
+  "deliverables": [
+    "dry-run output"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "command",
+      "text": "npm run ai:publish -- docs/ai-execution-framework/examples/framework/publish-dry-run-task-pack.json --dry-run"
+    }
+  ],
+  "verificationCommands": [
+    "npm run ai:publish -- docs/ai-execution-framework/examples/framework/publish-dry-run-task-pack.json --dry-run"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "fileeasy",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "AIFRAMEWORK-PUBLISH-DRYRUN-001: dry-run ai publish flow",
+    "prTitle": "AIFRAMEWORK-PUBLISH-DRYRUN-001: dry-run ai publish flow",
+    "prBodyPath": "docs/ai-execution-framework/templates/publish-report.template.md"
+  },
+  "handoffQuestions": [
+    "Should dry-run validation be separated from production publish metrics?"
+  ]
+}

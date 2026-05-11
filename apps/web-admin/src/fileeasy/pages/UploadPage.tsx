@@ -221,6 +221,7 @@ const UploadPage: React.FC = () => {
   const tasksRef = useRef<UploadTask[]>([]);
   const runningTasksRef = useRef<Set<string>>(new Set());
   const batchRunningRef = useRef(false);
+  const batchInitializingRef = useRef(false);
   const speedSampleRef = useRef<SpeedSample | null>(null);
 
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('checking');
@@ -236,6 +237,7 @@ const UploadPage: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [tasks, setTasks] = useState<UploadTask[]>(() => loadStoredTasks());
   const [batchRunning, setBatchRunning] = useState(false);
+  const [batchInitializing, setBatchInitializing] = useState(false);
   const [batchStartedAt, setBatchStartedAt] = useState<number | null>(null);
   const [batchCompletedAt, setBatchCompletedAt] = useState<number | null>(null);
   const [transferSpeed, setTransferSpeed] = useState(0);
@@ -367,8 +369,8 @@ const UploadPage: React.FC = () => {
     runningTasksRef.current.add(taskId);
     updateTask(taskId, (current) => ({
       ...current,
-      status: current.uploadId ? 'resuming' : 'uploading',
-      note: current.uploadId ? '正在继续上传...' : '正在上传...',
+      status: current.uploadId && current.uploadedChunkCount > 0 ? 'resuming' : 'uploading',
+      note: current.uploadId && current.uploadedChunkCount > 0 ? '正在继续上传...' : '正在上传...',
       errorMessage: undefined,
       needsFileReselect: false,
       lastUpdatedAt: Date.now(),
@@ -493,6 +495,67 @@ const UploadPage: React.FC = () => {
     }
   };
 
+  const ensureUploadSession = async (task: UploadTask) => {
+    if (!task.file || task.needsFileReselect) return false;
+    if (task.uploadId) return true;
+
+    const totalChunks = task.totalChunks || Math.max(1, Math.ceil(task.file.size / CHUNK_SIZE));
+    updateTask(task.id, (current) => ({
+      ...current,
+      status: 'queued',
+      note: '正在创建传输队列...',
+      errorMessage: undefined,
+      totalChunks,
+      lastUpdatedAt: Date.now(),
+    }));
+
+    try {
+      const initResponse = await initFileEasyUpload({
+        fileName: task.file.name,
+        fileSize: task.file.size,
+        chunkSize: CHUNK_SIZE,
+        totalChunks,
+        mimeType: task.file.type || undefined,
+      });
+      const uploadedChunkIndexes = initResponse.uploadedChunkIndexes || [];
+      const nextTotalChunks = initResponse.totalChunks || totalChunks;
+
+      updateTask(task.id, (current) => ({
+        ...current,
+        uploadId: initResponse.uploadId,
+        totalChunks: nextTotalChunks,
+        uploadedChunkCount: uploadedChunkIndexes.length,
+        progress: getProgressFromChunks(uploadedChunkIndexes.length, nextTotalChunks),
+        status: 'queued',
+        note: '已加入传输队列，等待上传。',
+        expiresAt: initResponse.expiresAt,
+        errorMessage: undefined,
+        needsFileReselect: false,
+        lastUpdatedAt: Date.now(),
+      }));
+      return true;
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearSessionCookie();
+        setIsAuthenticated(false);
+        setLoginError('登录已失效，请重新输入访问密码。');
+      }
+
+      const message = getApiErrorMessage(error, '上传初始化失败，请重试。');
+      updateTask(task.id, (current) => ({
+        ...current,
+        status: 'failed',
+        note: message,
+        errorMessage: message,
+        uploadId: undefined,
+        uploadedChunkCount: 0,
+        progress: 0,
+        lastUpdatedAt: Date.now(),
+      }));
+      return false;
+    }
+  };
+
   const handleLogin = async () => {
     if (!password.trim()) {
       setLoginError('请输入访问密码。');
@@ -604,7 +667,9 @@ const UploadPage: React.FC = () => {
     setBatchRunning(true);
   };
 
-  const handleStartUpload = () => {
+  const handleStartUpload = async () => {
+    if (batchInitializingRef.current) return;
+
     const readyTasks = tasksRef.current.filter(
       (task) =>
         task.file &&
@@ -616,6 +681,10 @@ const UploadPage: React.FC = () => {
       return;
     }
 
+    batchInitializingRef.current = true;
+    setBatchInitializing(true);
+    batchRunningRef.current = true;
+    setBatchRunning(true);
     setTasks((current) =>
       current.map((task) => {
         if (!task.file || task.needsFileReselect) return task;
@@ -635,10 +704,29 @@ const UploadPage: React.FC = () => {
     setBatchCompletedAt(null);
     setTransferSpeed(0);
     speedSampleRef.current = null;
-    setBatchRunning(true);
+
+    const preparedResults = await Promise.all(readyTasks.map((task) => ensureUploadSession(task)));
+    const preparedCount = preparedResults.filter(Boolean).length;
+
+    batchInitializingRef.current = false;
+    setBatchInitializing(false);
+
+    if (!preparedCount) {
+      batchRunningRef.current = false;
+      setBatchRunning(false);
+      setPageMessage('没有可上传的有效文件，请检查失败提示后重试。');
+      return;
+    }
+
+    setPageMessage(
+      preparedCount === readyTasks.length
+        ? ''
+        : `已创建 ${preparedCount} 个有效传输任务，其余文件初始化失败。`,
+    );
   };
 
   const handlePauseBatch = () => {
+    batchRunningRef.current = false;
     setBatchRunning(false);
     setTasks((current) =>
       current.map((task) => {
@@ -759,14 +847,14 @@ const UploadPage: React.FC = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!batchRunning || !isAuthenticated || !isOnline || serviceStatus !== 'ready') return;
+    if (!batchRunning || batchInitializing || !isAuthenticated || !isOnline || serviceStatus !== 'ready') return;
     if (runningTasksRef.current.size > 0) return;
 
     const nextTask = tasksRef.current.find(
       (task) =>
         task.file &&
         !task.needsFileReselect &&
-        (task.status === 'queued' || task.status === 'paused' || task.status === 'failed'),
+        (task.status === 'queued' || task.status === 'paused'),
     );
 
     if (!nextTask) {
@@ -777,7 +865,7 @@ const UploadPage: React.FC = () => {
     if (nextTask.file) {
       void startUpload(nextTask.file, nextTask.id);
     }
-  }, [batchRunning, isAuthenticated, isOnline, serviceStatus, tasks]);
+  }, [batchRunning, batchInitializing, isAuthenticated, isOnline, serviceStatus, tasks]);
 
   useEffect(() => {
     const totalTrackedBytes = tasks.reduce((sum, task) => {
@@ -909,7 +997,7 @@ const UploadPage: React.FC = () => {
             <div className="fileeasy-hero-icon fileeasy-hero-icon--danger">╳</div>
             <div className="fileeasy-flow-copy">
               <h1>无法连接到易传输服务</h1>
-              <p>请确认你的手机已连接到与设备相同的 Wi-Fi 网络或热点。</p>
+              <p>请把手机连接到设备当前使用的同一个 Wi-Fi 或热点，再重新打开扫码链接。</p>
             </div>
 
             <div className="fileeasy-network-card">
@@ -917,6 +1005,12 @@ const UploadPage: React.FC = () => {
               <strong>{serviceStatus === 'checking' ? '正在检测局域网服务' : '未检测到局域网服务'}</strong>
               <small>需要连接</small>
               <code>{connectionAddress}</code>
+            </div>
+
+            <div className="fileeasy-network-steps">
+              <strong>下一步</strong>
+              <span>1. 打开手机 Wi-Fi，切换到和设备相同的网络或热点</span>
+              <span>2. 返回设备首页，重新扫码上传文件</span>
             </div>
 
             <Button
@@ -1077,8 +1171,8 @@ const UploadPage: React.FC = () => {
                 <strong>{totalFiles} 个已选</strong>
                 <span>{readyToStartCount > 0 ? `${readyToStartCount} 个可立即上传` : '先选择文件后再开始上传'}</span>
               </div>
-              <Button block size="lg" variant="primary" onClick={handleStartUpload} disabled={!readyToStartCount}>
-                开始上传 {readyToStartCount > 0 ? `${readyToStartCount} 个` : ''}
+              <Button block size="lg" variant="primary" onClick={() => void handleStartUpload()} disabled={!readyToStartCount || batchInitializing}>
+                {batchInitializing ? '正在创建传输队列...' : `开始上传 ${readyToStartCount > 0 ? `${readyToStartCount} 个` : ''}`}
               </Button>
             </div>
           </section>

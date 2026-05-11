@@ -1,0 +1,84 @@
+{
+  "taskId": "FE-V106-batch-upload-home-state",
+  "taskName": "Fix batch upload homepage state so completion appears only after the whole batch finishes",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "release-fix",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Fix FileEasy batch upload state reporting so the APK service homepage stays in the receiving/uploading state until every file in the selected batch has completed.",
+  "nonGoals": [
+    "Do not redesign the upload page visual layout.",
+    "Do not add remote admin or file-management functionality.",
+    "Do not change allowed file types, chunk size, 4GB limit, or password rules.",
+    "Do not implement upload history entry, cross-network guidance, or app icon fixes in this task.",
+    "Do not reintroduce player, monitor, discovery, or public access behavior."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/web-admin/src/fileeasy/pages/UploadPage.tsx",
+    "apps/web-admin/src/api/fileeasy.ts",
+    "apps/web-admin/src/fileeasy/services/upload.ts",
+    "apps/web-admin/src/fileeasy/types/upload.ts",
+    "apps/android-player/src/main/java/com/xplay/player/server/LocalServerService.kt",
+    "apps/android-player/src/main/java/com/xplay/player/server/storage/Daos.kt",
+    "apps/android-player/src/main/java/com/xplay/player/server/storage/UploadDaos.kt",
+    "apps/android-player/src/main/java/com/xplay/player/server/storage/UploadEntities.kt",
+    "apps/android-player/src/main/java/com/xplay/player/MainActivity.kt"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V106-batch-upload-home-state.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V106-batch-upload-home-state.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-V106-batch-upload-home-state-pm-acceptance.md"
+  ],
+  "forbiddenPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "apps/_deprecated_server"
+  ],
+  "deliverables": [
+    "batch upload homepage-state fix",
+    "focused verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When a user selects multiple valid files and starts upload, the APK service homepage can see the whole batch as queued/receiving/completed rather than only the currently uploading file."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "During a multi-file batch, after file 1 completes but file 2 or later is still queued or uploading, the APK service homepage remains in the receiving/uploading state and must not switch to transfer-complete."
+    },
+    {
+      "id": "AC-3",
+      "type": "scenario",
+      "text": "Only after every file in the current batch completes should the APK service homepage switch to transfer-complete."
+    },
+    {
+      "id": "AC-4",
+      "type": "manual",
+      "text": "Single-file upload behavior remains unchanged: the homepage may switch to transfer-complete after the single file finishes."
+    },
+    {
+      "id": "AC-5",
+      "type": "manual",
+      "text": "Paused, failed, unsupported, or over-4GB files do not cause a false transfer-complete state while valid batch files are still pending."
+    }
+  ],
+  "verificationCommands": [
+    "npm --prefix apps/web-admin run build",
+    "JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home GRADLE_USER_HOME=../../.gradle-home ./gradlew compileFileeasyDebugKotlin"
+  ],
+  "handoffQuestions": [
+    "Explain whether the fix creates all upload sessions at batch start, introduces an explicit batch id, or uses another mechanism.",
+    "Describe exactly how the APK homepage determines receiving versus completed after this change.",
+    "List any remaining real-device validation gap."
+  ]
+}

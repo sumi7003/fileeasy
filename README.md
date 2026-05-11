@@ -1,257 +1,186 @@
-# Xplay - 企业级数字标牌系统
+# Xplay / FileEasy
 
-> 🚀 **当前推荐架构**: Android Host Mode (一主多从) | 零成本 | 支持30+台设备
+本仓库当前承载两个产品方向：
 
----
+- `Xplay`：原 Android 数字标牌 / 播放器系统。
+- `FileEasy`：基于现有 Android 工程隔离出的局域网文件接收服务 APK。
 
-## ⚠️ 重要提示
+当前活跃分支是 `fileeasy`，当前重点是推进 `FileEasy v1`。除非任务明确要求维护 Xplay，否则新开发、验收和 AI 派发都应以 FileEasy 文档为准。
 
-### 当前推荐方案: Android Host Mode
+## FileEasy 是什么
 
-**如果你有多台Android Pad，强烈推荐使用一主多从架构：**
+FileEasy 的目标是把一台 Android 手机、平板或盒子变成局域网文件接收节点。管理员安装 APK 后，APK 首页展示上传地址和二维码；手机、电脑等设备在同一 Wi-Fi 或热点局域网内扫码或输入地址，即可打开上传页并上传文件。
 
-- ✅ **零额外成本** - 不需要购买服务器或树莓派
-- ✅ **配置简单** - 30分钟完成所有配置
-- ✅ **性能充足** - 单台主Pad可支持30+台从Pad
-- ✅ **维护方便** - 只需要管理Android应用
+FileEasy v1 的产品边界：
 
-**快速开始**: 查看 [主Pad设计文档](docs/MASTER_PAD_DESIGN.md)
+- 纯服务端 APK，不带播放器功能。
+- 仅支持局域网访问，包括 Wi-Fi 和热点。
+- 不做公网访问，不做自动发现。
+- 远程 Web 只保留上传页 `/`。
+- v1 不提供远程 `/admin` 管理页。
+- v1 不提供远程文件列表、预览、重命名、删除、批量删除、下载。
 
-### NestJS独立服务器已废弃
+## 目录说明
 
-NestJS服务器代码**已移至废弃目录**：
+```text
+apps/android-player/
+  Android 宿主工程。通过 product flavor 区分 xplay 与 fileeasy。
 
-- ❌ **不推荐使用** - 除非设备数量>50台
-- 📁 **已移至** - `apps/_deprecated_server/` 目录
-- 📖 **详见文档** - [废弃说明](docs/DEPRECATED_NESTJS_SERVER.md)
-- 🔄 **如需重启** - [完整重启指南](apps/_deprecated_server/README_DEPRECATED.md)
+apps/web-admin/
+  React/Vite Web 工程。FileEasy 上传页在这里实现，构建后同步到 Android assets。
 
-**原因**: 维护双服务端架构成本高，Android Host Mode已足够满足大多数场景。
+docs/
+  产品、设计、验收和 AI 开发流程文档。
 
----
+docs/ai-execution-framework/
+  AI 任务派发、范围校验、发布门禁和项目包规范。
 
-## 🚀 快速开始 (Android Host Mode)
+docs/ai-execution-framework/projects/fileeasy/
+  FileEasy 专属任务包、执行 prompt、PM checklist 和验收报告。
 
-### 准备工作
-- 多台Android Pad (推荐4GB+ RAM)
-- 同一Wi-Fi网络
-
-### 配置步骤 (10分钟)
-
-**1. 配置主Pad (管理中枢)**
-```
-1. 安装Xplay App到性能最好的Pad
-2. 打开App → 开启"服务端角色"
-3. 记录主Pad IP地址 (如: 192.168.1.100)
-4. 点击"查看系统监控" → 看到监控面板
-5. 点击"管理素材与播放列表" → 进入管理后台
+scripts/ai-framework/
+  AI 开发流程校验脚本。
 ```
 
-**2. 配置从Pad (播放器)**
-```
-1. 安装Xplay App到其他所有Pad
-2. 打开App → 输入主Pad IP: 192.168.1.100
-3. 自动连接并注册
-4. 在主Pad监控面板中看到设备上线
-```
+## 核心文档
 
-**3. 开始使用**
-```
-1. 主Pad管理后台 → 上传素材
-2. 创建播放列表
-3. 分配给从Pad
-4. 从Pad自动开始播放 (30秒内)
-```
+- PRD：[docs/FileEasy-PRD-v1.0.md](docs/FileEasy-PRD-v1.0.md)
+- 设计：[docs/FileEasy-Design-v1.0.md](docs/FileEasy-Design-v1.0.md)
+- AI 流程：[docs/FileEasy-AI-Workflow-v1.0.md](docs/FileEasy-AI-Workflow-v1.0.md)
+- FileEasy AI 项目包：[docs/ai-execution-framework/projects/fileeasy/README.md](docs/ai-execution-framework/projects/fileeasy/README.md)
+- 当前阶段报告：[docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Overall-Acceptance-Report.md](docs/ai-execution-framework/projects/fileeasy/reports/FileEasy-v1-Overall-Acceptance-Report.md)
 
-**详细文档**: [主Pad设计文档](docs/MASTER_PAD_DESIGN.md)
+## 环境要求
 
----
+- Node.js `>= 18`
+- npm 或 pnpm
+- JDK 17
+- Android SDK
+- Gradle Wrapper 使用 `apps/android-player/gradlew`
 
-## 🧪 旧文档: NestJS服务器测试指南 (已废弃)
+本机常用 JDK 路径：
 
-<details>
-<summary>⚠️ 点击展开 - 仅供参考，不推荐使用</summary>
-
-## 1. 极速测试指南 (如何立刻看到效果)
-
-如果您目前在本地电脑运行服务端，手机/模拟器运行客户端，请按以下步骤操作：
-
-### 第一步：获取电脑 IP 并配置 App
-由于手机无法识别 `localhost`，必须使用局域网 IP。
-1. **查 IP**: 在电脑终端运行 `ifconfig | grep "inet " | grep -v 127.0.0.1` (Mac) 或 `ipconfig` (Win)。假设是 `192.168.1.5`。
-2. **改代码**: 修改 `apps/android-player/src/main/java/com/xplay/player/data/api/NetworkModule.kt` 第 9 行：
-   ```kotlin
-   private const val BASE_URL = "http://192.168.1.5:3000/api/v1/"
-   ```
-3. **重装 App**:
-   ```bash
-   cd apps/android-player && ./gradlew assembleDebug
-   adb -s <您的设备ID> install -r ./build/outputs/apk/debug/XplayPlayer-debug.apk
-   ```
-
-### 第二步：启动服务
-1. **服务端 (已设为 SQLite 模式，无需数据库)**:
-   ```bash
-   pnpm --filter @xplay/server start:dev
-   ```
-2. **管理后台**:
-   ```bash
-   pnpm --filter @xplay/web-admin dev
-   ```
-
-### 第三步：全链路闭环测试
-1. **打开后台**: 浏览器访问 `http://localhost:3001`。
-2. **上传**: 在 [素材库] 上传一个图片或视频。
-3. **编排**: 在 [播放列表] 新建一个列表并加入该素材。
-4. **上线**: 在手机上打开 "Xplay Player"，观察后台 [设备管理] 刷新，看到手机上线。
-5. **发布**: 点击设备操作栏的 [分配节目]，选择刚才的列表。
-6. **成功**: 观察手机，30秒内应开始播放。
-
----
-
-## 🏗 2. 服务端部署说明书 (正式环境)
-
-正式部署建议使用 **Docker + PostgreSQL**，以保证 50+ 台设备的稳定性。
-
-### 1. 准备工作
-- 服务器安装 Docker 和 Docker Compose。
-- 将代码上传至服务器。
-
-### 2. 修改配置 (从开发切到生产)
-⚠️ **此步骤仅适用于NestJS服务器（已废弃）**
-
-如重启NestJS，需修改 `apps/_deprecated_server/src/app.module.ts`（或恢复后的 `apps/server/src/app.module.ts`），将 `TypeOrmModule` 改回 PostgreSQL 配置。
-
-### 3. 使用 Docker 一键部署
-在项目根目录执行：
 ```bash
-# 构建镜像并后台启动
-docker-compose up -d --build
-```
-该命令会自动启动：
-- **PostgreSQL**: 端口 5432，持久化数据在 `postgres_data` 卷。
-- **NestJS Server**: 端口 3000。
-
-### 4. 静态资源持久化
-⚠️ **NestJS服务器**: 上传的素材存储在 `apps/_deprecated_server/uploads/` 目录（或恢复后的 `apps/server/uploads/`）。
-
-**Android Host Mode**: 素材存储在主Pad内部 `/data/data/com.xplay.player/files/uploads/`。
-**注意**: 在 Docker 环境下，请确保 `docker-compose.yml` 中配置了该目录的 Volume 映射，否则容器重启素材会丢失。
-
-### 5. Nginx 反向代理 (推荐配置)
-为了支持域名和 80 端口，建议配置 Nginx：
-```nginx
-server {
-    listen 80;
-    server_name xplay.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:3001; # 指向 Web Admin
-    }
-
-    location /api {
-        proxy_pass http://127.0.0.1:3000; # 指向 Server API
-    }
-
-    location /uploads {
-        proxy_pass http://127.0.0.1:3000; # 指向 Server 静态资源
-    }
-}
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
 ```
 
----
+## 开发与构建
 
-## 🛠 代码与项目管理规范
+安装前端依赖：
 
-- **代码风格**: 统一使用 Prettier 格式化 (`pnpm format`)。
-- **代码评审**: 核心逻辑（如下发引擎）必须经过 Review。
-- **测试**: 涉及 50 台设备的高并发心跳，已通过轻量化 DTO 优化。
-
-</details>
-
----
-
-## 📚 文档导航
-
-### 推荐阅读 (新架构)
-1. **[主Pad设计文档](docs/MASTER_PAD_DESIGN.md)** ⭐ 最重要
-   - 一主多从架构详解
-   - 配置步骤和监控面板
-   - 性能测试数据
-
-2. **[高性能Pad方案](docs/HIGH_PERFORMANCE_PAD_SOLUTION.md)**
-   - 详细实施指南
-   - 批量配置脚本
-   - 主备切换方案
-
-3. **[详细流程分析](docs/DETAILED_FLOW_ANALYSIS.md)**
-   - 服务端和客户端完整流程
-   - 易出问题的地方标注
-   - 调试工具和技巧
-
-4. **[故障排查指南](docs/TROUBLESHOOTING.md)**
-   - 5分钟快速定位问题
-   - 常见问题解决方案
-   - 诊断脚本
-
-### 参考文档 (旧架构)
-- [NestJS服务器废弃说明](docs/DEPRECATED_NESTJS_SERVER.md) ⚠️
-- [完整重启指南](apps/_deprecated_server/README_DEPRECATED.md) ⚠️
-
----
-
-## 🎯 架构选择建议
-
-### 快速决策
-
-```
-你有多台Android Pad吗？
-  └─ 是 → 使用 Android Host Mode ✅
-  └─ 否 → 需要购买设备
-        └─ 预算有限 → 购买1台高性能Pad作为主Pad ✅
-        └─ 预算充足 → 可选择树莓派/服务器 ⚠️
-
-设备数量？
-  └─ ≤30台 → Android Host Mode ✅
-  └─ 31-50台 → Android Host Mode (主备) ✅
-  └─ >50台 → 考虑NestJS服务器 ⚠️
-
-在局域网内使用？
-  └─ 是 → Android Host Mode ✅
-  └─ 否 → 需要云端管理 → NestJS + 云服务器 ⚠️
+```bash
+npm install
 ```
 
-### 成本对比
+构建 Web 上传页：
 
-| 方案 | 初始投入 | 月度成本 | 维护难度 | 推荐度 |
-|-----|---------|---------|---------|-------|
-| Android Host Mode | 0元 | 0元 | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| NestJS + 树莓派 | 300元 | 0元 | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| NestJS + 云服务器 | 0元 | 120元 | ⭐⭐⭐⭐⭐ | ⭐⭐ |
+```bash
+npm --prefix apps/web-admin run build
+```
 
-**结论**: 90%的场景推荐使用Android Host Mode
+编译 FileEasy APK：
 
----
+```bash
+cd apps/android-player
+JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home \
+GRADLE_USER_HOME=../../.gradle-home \
+./gradlew compileFileeasyDebugKotlin
+```
 
-## 💬 获取帮助
+构建 FileEasy debug APK：
 
-### 常见问题
-- 配置问题: 查看 [主Pad设计文档](docs/MASTER_PAD_DESIGN.md)
-- 运行问题: 查看 [故障排查指南](docs/TROUBLESHOOTING.md)
-- NestJS相关: 查看 [废弃说明](docs/DEPRECATED_NESTJS_SERVER.md)
+```bash
+cd apps/android-player
+JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home \
+GRADLE_USER_HOME=../../.gradle-home \
+./gradlew assembleFileeasyDebug
+```
 
-### 联系方式
-- GitHub Issues: [提交问题]
-- 技术社区: [待补充]
-- 企业支持: [待补充]
+安装到已连接 Android 设备：
 
----
+```bash
+cd apps/android-player
+JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home \
+GRADLE_USER_HOME=../../.gradle-home \
+./gradlew installFileeasyDebug
+```
 
-## 📄 版权说明
+## FileEasy 使用说明
 
-基于 [MIT License](./LICENSE) 开源。
-参考项目: [xplay.io](https://github.com/wendal/xplay.io)
+1. 安装并打开 FileEasy APK。
+2. APK 首页启动本地文件服务，并展示上传地址与二维码。
+3. 让上传设备连接到同一个 Wi-Fi 或当前热点。
+4. 上传设备扫码或输入首页展示的地址。
+5. 打开上传页 `/` 后输入密码登录。
+6. 选择单个或多个文件上传。
+7. 上传完成后，文件保存到 Android 设备本地私有目录。
 
-**最后更新**: 2026-01-16  
-**当前版本**: v2.0 (Android Host Mode)  
-**维护者**: 开发团队
+默认能力：
+
+- 支持单文件和多文件上传。
+- 支持 `8MB` 分片上传。
+- 支持断点续传。
+- 单文件最大 `4GB`。
+- 未完成上传会话保留 `24` 小时。
+- 登录态保持 `7` 天。
+- 修改密码仅允许在 APK 本机入口完成。
+
+支持文件类型：
+
+- 文档：`pdf doc docx xls xlsx ppt pptx txt`
+- 图片：`jpg jpeg png gif webp`
+- 视频：`mp4 mov`
+- 音频：`mp3 wav m4a`
+- 压缩文件：`zip`
+
+## AI 开发流程
+
+FileEasy 开发不直接从口头需求进入编码，必须按以下顺序推进：
+
+1. 更新或确认 PRD。
+2. 更新或确认设计文档。
+3. 创建或更新 task pack。
+4. 编写可派发给执行 AI 的 prompt。
+5. 编写 PM acceptance checklist。
+6. 执行 AI 按 prompt 实现。
+7. PM 按 checklist 验收。
+8. 验收通过后再发布或合并。
+
+常用校验命令：
+
+```bash
+npm run ai:validate:bundle -- docs/ai-execution-framework/projects/fileeasy/project-bundle.json
+npm run ai:validate:task -- docs/ai-execution-framework/projects/fileeasy/task-packs/<task>.json
+npm run ai:check-scope -- docs/ai-execution-framework/projects/fileeasy/task-packs/<task>.json <changed-files...>
+npm run ai:validate:publish -- docs/ai-execution-framework/projects/fileeasy/task-packs/<task>.json
+```
+
+## 当前状态
+
+已完成并验收：
+
+- `FE-T001`：FileEasy flavor 与纯服务端壳隔离。
+- `FE-T002`：服务生命周期与局域网地址策略。
+- `FE-T003`：上传后端与断点续传核心。
+- `FE-T004`：远程上传页。
+- `FE-CR001`：文档对齐，移除远程 `/admin` 管理页。
+- `FE-V105`：代码侧移除远程 `/admin` 页面。
+
+当前待返工：
+
+- `FE-V106`：批量上传时 APK 首页状态不应提前切到完成态。核心修复方向正确，但混入了不同网络引导和接收记录入口，需要先拆出非本任务范围。
+
+## 提交规范
+
+- 不提交本地缓存，例如 `.gradle/`、`.gradle-home/`、`node_modules/`。
+- 不提交无关构建中间产物，例如 `tsconfig.tsbuildinfo`。
+- FileEasy 任务提交前至少运行：
+  - `npm --prefix apps/web-admin run build`
+  - `./gradlew compileFileeasyDebugKotlin`
+  - 对应 task pack 的 `ai:validate:task`
+  - 对应变更文件的 `ai:check-scope`
+- 若需求变更，先改 PRD，再改设计，再派发任务，不允许执行 AI 自行扩范围。
+
+## 旧 Xplay 说明
+
+Xplay 仍保留在同一仓库中，Android flavor 为 `xplay`，包名为 `com.xplay.player`。FileEasy flavor 为 `fileeasy`，包名为 `com.xplay.fileeasy`。两个产品可以在同一工程中分别构建，但 FileEasy v1 不应暴露播放器能力。

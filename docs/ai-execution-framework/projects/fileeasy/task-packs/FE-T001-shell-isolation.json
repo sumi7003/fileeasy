@@ -1,0 +1,88 @@
+{
+  "taskId": "FE-T001",
+  "taskName": "FileEasy pure service shell isolation",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "implementation",
+  "status": "accepted",
+  "ownerRole": "execution-ai",
+  "goal": "Turn the fileeasy flavor into a pure service-shell APK that does not expose player-facing UI, product wording, or interaction paths while keeping xplay behavior intact.",
+  "nonGoals": [
+    "Do not implement upload backend changes.",
+    "Do not redesign the admin web pages.",
+    "Do not change xplay feature behavior except where flavor gating requires isolation."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0",
+    "fileeasy-visual-spec-v1.0",
+    "fileeasy-wireframe-spec-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/android-player/build.gradle.kts",
+    "apps/android-player/src/fileeasy",
+    "apps/android-player/src/main/java/com/xplay/player/MainActivity.kt",
+    "apps/android-player/src/main/java/com/xplay/player/ProductFlavorConfig.kt",
+    "apps/android-player/src/main/res/values",
+    "apps/android-player/src/main/AndroidManifest.xml"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-T001-shell-isolation.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-T001-shell-isolation.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T001-pm-checklist.md"
+  ],
+  "forbiddenPaths": [
+    "apps/web-admin",
+    "apps/_deprecated_server",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "android flavor isolation changes",
+    "verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When the fileeasy flavor is launched, the homepage should show only file service status, upload QR/address, admin entry, and password entry, and should not expose player role UI."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "When the xplay flavor is launched, existing player-facing behavior should remain available."
+    },
+    {
+      "id": "AC-3",
+      "type": "command",
+      "text": "GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin"
+    }
+  ],
+  "verificationCommands": [
+    "GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "fileeasy",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "FE-T001: FileEasy pure service shell isolation",
+    "prTitle": "FE-T001: FileEasy pure service shell isolation",
+    "prBodyPath": "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T001-pm-checklist.md"
+  },
+  "handoffQuestions": [
+    "List only unresolved isolation gaps that still require PM or design decisions."
+  ]
+}

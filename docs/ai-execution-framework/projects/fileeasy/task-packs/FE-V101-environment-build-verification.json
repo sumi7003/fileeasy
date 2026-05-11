@@ -1,0 +1,62 @@
+{
+  "taskId": "FE-V101",
+  "taskName": "Environment and build verification",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "validation",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Verify that FileEasy has a usable local build environment for Android and web validation, identify concrete environment blockers, and produce a verification summary that can unblock end-to-end integration testing.",
+  "nonGoals": [
+    "Do not implement new product features.",
+    "Do not modify PRD or design documents.",
+    "Do not silently change product code unless a PM-approved blocker fix is explicitly requested."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/reports"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V101-environment-build-verification.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V101-environment-build-verification.md"
+  ],
+  "forbiddenPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "apps/_deprecated_server"
+  ],
+  "deliverables": [
+    "android build environment check",
+    "web build verification",
+    "environment blocker summary",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "The task should confirm whether Android FileEasy compile verification can run locally, and if not, identify the exact environment blocker with concrete evidence."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "The task should verify the web-admin build path and report whether it is stable enough for integration testing."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "The final report should clearly separate environment problems from product-code problems."
+    }
+  ],
+  "verificationCommands": [
+    "GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin",
+    "npm --prefix apps/web-admin run build"
+  ],
+  "handoffQuestions": [
+    "List only environment blockers that require PM or user action before end-to-end integration validation."
+  ]
+}

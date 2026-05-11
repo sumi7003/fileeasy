@@ -1,0 +1,70 @@
+{
+  "taskId": "replace-with-task-id",
+  "taskName": "Replace With Task Name",
+  "projectId": "replace-with-project-id",
+  "projectBundlePath": "docs/ai-execution-framework/examples/project/project-bundle.json",
+  "stage": "implementation",
+  "status": "draft",
+  "ownerRole": "execution-ai",
+  "goal": "Describe the one thing this task must complete.",
+  "nonGoals": [
+    "Describe what must not be done."
+  ],
+  "documentRefs": [
+    "replace-prd-id",
+    "replace-design-id",
+    "replace-workflow-id"
+  ],
+  "allowedPaths": [
+    "apps/module/path"
+  ],
+  "controlPaths": [
+    "docs/path-for-this-task",
+    "scripts/path-for-this-task"
+  ],
+  "forbiddenPaths": [
+    "apps/another-module/path"
+  ],
+  "deliverables": [
+    "code",
+    "tests",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When _____ happens, the system should _____."
+    },
+    {
+      "id": "AC-2",
+      "type": "command",
+      "text": "./gradlew :module:testDebugUnitTest"
+    }
+  ],
+  "verificationCommands": [
+    "./gradlew :module:testDebugUnitTest"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "codex/replace-with-branch-name",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": true,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "TASK-ID: short summary",
+    "prTitle": "TASK-ID: short summary",
+    "prBodyPath": "docs/path-to-publish-report.md"
+  },
+  "handoffQuestions": [
+    "List only the decisions that must go back to PM or design."
+  ]
+}

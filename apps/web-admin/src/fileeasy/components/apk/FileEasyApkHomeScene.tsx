@@ -179,7 +179,7 @@ const FileEasyApkHomeScene: React.FC<FileEasyApkHomeSceneProps> = ({
         {showIllustration ? (
           <section className="fileeasy-home-illustration">
             <div className="fileeasy-home-illustration__access">
-              电脑访问：网页地址 {homeSummary?.uploadUrl || 'http://192.168.1.23:3000/'}
+              电脑访问网页：{homeSummary?.uploadUrl || 'http://192.168.1.23:3000/'}
             </div>
             <img className="fileeasy-home-illustration__image" src={transferIllustration} alt="扫码选择文件上传示意图" />
           </section>

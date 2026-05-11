@@ -194,6 +194,29 @@ input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+.fileeasy-network-steps {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(234, 247, 241, 0.9);
+  border: 1px solid rgba(31, 138, 87, 0.16);
+  color: #315d48;
+  text-align: left;
+}
+
+.fileeasy-network-steps strong {
+  color: #20352b;
+  font-size: 0.95rem;
+}
+
+.fileeasy-network-steps span {
+  color: #4f665b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .fileeasy-result-card {
   gap: 0;
   overflow: hidden;

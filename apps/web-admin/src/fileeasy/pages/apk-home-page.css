@@ -521,8 +521,9 @@
 }
 
 .fileeasy-home-illustration__access {
-  color: var(--fileeasy-text-soft);
-  font-size: 0.84rem;
+  color: #5e6f67;
+  font-size: 0.95rem;
+  font-weight: 700;
   line-height: 1.5;
   text-align: center;
   overflow-wrap: anywhere;

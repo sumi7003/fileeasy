@@ -1,0 +1,84 @@
+{
+  "taskId": "FE-T005",
+  "taskName": "Admin page file management core",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "implementation",
+  "status": "accepted",
+  "ownerRole": "execution-ai",
+  "goal": "Implement the FileEasy admin page core for file listing, search, preview, rename, download, single delete, and batch delete within the approved product scope.",
+  "nonGoals": [
+    "Do not add batch download.",
+    "Do not add log query pages or dashboards.",
+    "Do not extend preview to unsupported office document types."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0",
+    "fileeasy-visual-spec-v1.0",
+    "fileeasy-wireframe-spec-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/web-admin/src",
+    "apps/web-admin/index.html"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-T005-admin-page-core.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-T005-admin-page-core.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T005-pm-checklist.md"
+  ],
+  "forbiddenPaths": [
+    "apps/_deprecated_server",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "admin page implementation",
+    "preview and file action integration",
+    "verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When an authenticated admin opens /admin, they should be able to list, search, preview, rename, download, delete, and batch delete files within the approved scope."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "When a user attempts to rename a file, the UI and API integration should only allow the base name to change and should not allow extension changes."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "Visually confirm that admin interactions follow the approved FileEasy visual and wireframe guidance without adding dashboard-style or logging surfaces."
+    }
+  ],
+  "verificationCommands": [
+    "npm --prefix apps/web-admin run build"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "fileeasy",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "FE-T005: FileEasy admin page file management core",
+    "prTitle": "FE-T005: FileEasy admin page file management core",
+    "prBodyPath": "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T005-pm-checklist.md"
+  },
+  "handoffQuestions": [
+    "List only remaining admin page product gaps that require PM review."
+  ]
+}

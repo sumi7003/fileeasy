@@ -1,0 +1,55 @@
+{
+  "taskId": "FE-V104-remove-monitor-entry",
+  "taskName": "Release blocker fix - remove FileEasy monitor entry",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "blocker-fix",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Remove the monitor-dashboard entry from the FileEasy shell so the APK homepage returns to the approved pure service-shell boundary without introducing unrelated scope changes.",
+  "nonGoals": [
+    "Do not expand product scope beyond the approved PRD.",
+    "Do not bundle unrelated UI cleanup or monitor feature refactors.",
+    "Do not modify PRD or design documents."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/android-player/src/main/java/com/xplay/player/MainActivity.kt"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V104-remove-monitor-entry.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V104-remove-monitor-entry.md"
+  ],
+  "forbiddenPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "apps/_deprecated_server"
+  ],
+  "deliverables": [
+    "blocker fix implementation",
+    "focused verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "The FileEasy homepage no longer exposes the monitor dashboard entry or path, and the shell returns to the approved upload-QR / upload-address / admin-entry / password-entry boundary."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "Removing the monitor entry does not reintroduce player-facing UI and does not break the existing FileEasy admin entry behavior."
+    }
+  ],
+  "verificationCommands": [
+    "GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin"
+  ],
+  "handoffQuestions": [
+    "List only remaining blocker-level risks that still require PM review after the FileEasy monitor entry is removed."
+  ]
+}

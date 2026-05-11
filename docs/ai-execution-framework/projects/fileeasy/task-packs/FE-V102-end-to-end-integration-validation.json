@@ -1,0 +1,62 @@
+{
+  "taskId": "FE-V102",
+  "taskName": "End-to-end integration validation",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "validation",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Validate the integrated FileEasy v1 product path from APK shell entry assumptions through upload page flow, upload backend behavior, and admin-page management behavior using the approved integration checklist.",
+  "nonGoals": [
+    "Do not implement new product features.",
+    "Do not expand product scope beyond the approved PRD.",
+    "Do not silently fix code during validation unless PM opens a separate blocker-fix task."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/reports"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V102-end-to-end-integration-validation.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V102-end-to-end-integration-validation.md"
+  ],
+  "forbiddenPaths": [
+    "apps/android-player/src",
+    "apps/web-admin/src",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "end-to-end validation summary",
+    "pass/fail scenario matrix",
+    "release-blocker list",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "The task should evaluate the integrated path from FileEasy entry assumptions to upload page flow, resumable upload flow, and admin-page management flow against the approved integration checklist."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "The task should clearly separate passed scenarios, failed scenarios, release blockers, and non-blocking follow-ups."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "The final report should give PM a clear go/no-go recommendation for moving toward release closure or launching blocker-fix tasks."
+    }
+  ],
+  "verificationCommands": [
+    "npm --prefix apps/web-admin run build"
+  ],
+  "handoffQuestions": [
+    "List only the blockers that must be fixed before FileEasy can enter release-closure review."
+  ]
+}

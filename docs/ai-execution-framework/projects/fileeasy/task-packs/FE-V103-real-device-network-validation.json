@@ -1,0 +1,62 @@
+{
+  "taskId": "FE-V103",
+  "taskName": "Real-device and network-scene validation",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "validation",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Validate FileEasy v1 behavior in real-device and LAN-scene conditions, especially Wi-Fi, hotspot, network switching, reconnect, and reboot recovery scenarios, and produce a release-facing device-scene summary.",
+  "nonGoals": [
+    "Do not implement new product features.",
+    "Do not silently fix code during validation.",
+    "Do not expand product scope beyond the approved PRD."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/reports"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V103-real-device-network-validation.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V103-real-device-network-validation.md"
+  ],
+  "forbiddenPaths": [
+    "apps/android-player/src",
+    "apps/web-admin/src",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "device-scene validation summary",
+    "network-scenario pass/fail matrix",
+    "release-blocker list for real-device behavior",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "The task should evaluate FileEasy behavior in at least Wi-Fi, hotspot, reconnect, and reboot-related scenarios and report pass/fail results clearly."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "The task should identify whether LAN address refresh, QR availability, upload recovery, and service restoration behave correctly on real-device scenes."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "The final report should tell PM which device/network issues are release blockers and which can be deferred."
+    }
+  ],
+  "verificationCommands": [
+    "npm --prefix apps/web-admin run build"
+  ],
+  "handoffQuestions": [
+    "List only the device or network-scene blockers that must be fixed before FileEasy can enter release-closure review."
+  ]
+}

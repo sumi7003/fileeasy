@@ -1,0 +1,78 @@
+{
+  "taskId": "FE-V104-wifi-reachability-stability",
+  "taskName": "Release blocker fix - stabilize same-WiFi LAN reachability",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "blocker-fix",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Fix the FE-V103 release blocker where FileEasy becomes unreachable from another same-WiFi device after initial successful access, while the APK still reports the service as running and Android shows port 3000 listening.",
+  "nonGoals": [
+    "Do not fix the admin wrong-landing blocker in this task unless it is proven to be the same root cause as LAN reachability.",
+    "Do not fix the authenticated /api/v1/files 404 blocker in this task unless it is proven to be the same root cause as LAN reachability.",
+    "Do not add hotspot automation, discovery, public access, or new product features.",
+    "Do not re-enable player, monitor dashboard, or Xplay-only UI in FileEasy mode.",
+    "Do not modify PRD or design documents."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/android-player/src/main/java/com/xplay/player/server/LocalServerService.kt",
+    "apps/android-player/src/main/java/com/xplay/player/utils/LanAddressResolver.kt",
+    "apps/android-player/src/main/java/com/xplay/player/MainActivity.kt",
+    "apps/android-player/src/main/java/com/xplay/player/BootReceiver.kt",
+    "apps/android-player/src/main/AndroidManifest.xml"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V104-wifi-reachability-stability.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V104-wifi-reachability-stability.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-V104-wifi-reachability-stability-pm-acceptance.md"
+  ],
+  "forbiddenPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "apps/_deprecated_server",
+    "apps/web-admin/src"
+  ],
+  "deliverables": [
+    "blocker fix implementation",
+    "focused same-WiFi reachability verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "After FileEasy is launched and the APK homepage shows a Wi-Fi upload URL, another device on the same Wi-Fi can repeatedly access http://<device-ip>:3000/api/v1/ping and http://<device-ip>:3000/ without intermittent timeout, connection refused, or empty response failures."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "The FileEasy foreground service remains reachable while the service is shown as running, including after opening/closing the APK admin WebView and after the app moves between foreground and background."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "The fix does not reintroduce player UI, monitor dashboard entry, autodiscovery, public-network behavior, or legacy upload APIs into the FileEasy product boundary."
+    },
+    {
+      "id": "AC-4",
+      "type": "manual",
+      "text": "The APK still binds the local HTTP server to a LAN-reachable address on port 3000 and still displays a usable upload URL/QR for the currently selected LAN interface."
+    }
+  ],
+  "verificationCommands": [
+    "JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin",
+    "JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home GRADLE_USER_HOME=.gradle-home ./gradlew installFileeasyDebug",
+    "adb shell ss -ltnp | rg ':3000\\b'",
+    "for i in {1..10}; do curl -sS -m 5 http://<device-ip>:3000/api/v1/ping; echo; sleep 1; done",
+    "curl -sS -m 5 -D - http://<device-ip>:3000/ | head"
+  ],
+  "handoffQuestions": [
+    "Was the root cause lifecycle, address selection, Android foreground-service behavior, server binding, or something else?",
+    "If admin wrong-landing or authenticated /api/v1/files 404 remains after this fix, list them as separate blockers rather than expanding this task."
+  ]
+}

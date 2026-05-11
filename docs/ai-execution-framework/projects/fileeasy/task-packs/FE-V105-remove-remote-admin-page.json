@@ -1,0 +1,92 @@
+{
+  "taskId": "FE-V105-remove-remote-admin-page",
+  "taskName": "Scope change implementation - remove remote admin page from FileEasy v1",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "scope-change-implementation",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Implement FE-CR001 by removing the remote /admin management page and remote file-management surface from FileEasy v1 while preserving the remote upload page.",
+  "nonGoals": [
+    "Do not redesign the upload page.",
+    "Do not add a replacement remote management UI.",
+    "Do not implement local APK file manager in this task.",
+    "Do not remove upload chunk/resume APIs.",
+    "Do not reintroduce player, monitor, discovery, or public access behavior."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0",
+    "fileeasy-visual-spec-v1.0",
+    "fileeasy-wireframe-spec-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/android-player/src/main/java/com/xplay/player/MainActivity.kt",
+    "apps/android-player/src/main/java/com/xplay/player/server/LocalServerService.kt",
+    "apps/web-admin/src/App.tsx",
+    "apps/web-admin/src/api/fileeasy.ts",
+    "apps/web-admin/src/fileeasy/constants/routes.ts",
+    "apps/web-admin/src/fileeasy/pages",
+    "apps/web-admin/src/fileeasy/components/admin",
+    "apps/web-admin/src/fileeasy/services/files.ts",
+    "apps/web-admin/src/fileeasy/types/file.ts"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/change-requests/FE-CR001-remove-remote-admin-page.md",
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V105-remove-remote-admin-page.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V105-remove-remote-admin-page.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-V105-remove-remote-admin-page-pm-acceptance.md"
+  ],
+  "forbiddenPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "apps/_deprecated_server"
+  ],
+  "deliverables": [
+    "remote admin removal implementation",
+    "focused verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "In FileEasy mode, APK homepage no longer shows or opens a remote admin page entry, while upload URL/QR and password-local controls remain available."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "Remote /admin no longer renders FileEasy file-management UI and cannot be used to browse, preview, rename, delete, batch delete, or download uploaded files."
+    },
+    {
+      "id": "AC-3",
+      "type": "scenario",
+      "text": "Remote upload page / still loads and can authenticate and upload through the approved upload APIs."
+    },
+    {
+      "id": "AC-4",
+      "type": "manual",
+      "text": "FileEasy mode exposes only upload-surface APIs remotely; remote /api/v1/files* and /uploads/* management/download surfaces are disabled, removed, or return a non-success response."
+    },
+    {
+      "id": "AC-5",
+      "type": "manual",
+      "text": "No player UI, monitor dashboard entry, autodiscovery, public access, or unrelated feature expansion is introduced."
+    }
+  ],
+  "verificationCommands": [
+    "npm --prefix apps/web-admin run build",
+    "JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin",
+    "JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home GRADLE_USER_HOME=.gradle-home ./gradlew installFileeasyDebug",
+    "curl -sS -m 5 -D - http://<device-ip>:3000/ | head",
+    "curl -sS -m 5 -D - http://<device-ip>:3000/admin | head",
+    "curl -sS -m 5 -D - http://<device-ip>:3000/api/v1/files | head",
+    "curl -sS -m 5 -D - http://<device-ip>:3000/uploads/nonexistent | head"
+  ],
+  "handoffQuestions": [
+    "Confirm whether /admin returns 404, 410, or redirects to /, and why that behavior was chosen.",
+    "List any remaining admin code that is intentionally left only as dead code or future-scope code.",
+    "Confirm upload page / and upload APIs still work after admin removal."
+  ]
+}

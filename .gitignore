@@ -36,4 +36,7 @@ releases/
 
 releases/*.apk
 node_modules/
+.gradle-home/
 apps/android-player/.gradle/
+apps/android-player/.gradle-home/
+*.tsbuildinfo

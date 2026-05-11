@@ -1,0 +1,60 @@
+{
+  "taskId": "AIFRAMEWORK-PUBLISH-LOCAL-001",
+  "taskName": "Validate local-only publish policy",
+  "projectId": "ai-execution-framework",
+  "projectBundlePath": "docs/ai-execution-framework/examples/framework/project-bundle.json",
+  "stage": "framework-validation",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Validate that the framework can explicitly disable remote publishing for a local-only task.",
+  "nonGoals": [
+    "Do not publish to any remote."
+  ],
+  "documentRefs": [
+    "ai-execution-framework-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "docs/ai-execution-framework"
+  ],
+  "controlPaths": [
+    "scripts/ai-framework"
+  ],
+  "forbiddenPaths": [
+    "apps"
+  ],
+  "deliverables": [
+    "validation result"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "command",
+      "text": "npm run ai:validate:publish -- docs/ai-execution-framework/examples/framework/publish-disabled-task-pack.json"
+    }
+  ],
+  "verificationCommands": [
+    "npm run ai:validate:publish -- docs/ai-execution-framework/examples/framework/publish-disabled-task-pack.json"
+  ],
+  "publishPolicy": {
+    "enabled": false,
+    "mode": "manual",
+    "remoteName": "origin",
+    "branchName": "codex/local-only-validation",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": false,
+    "requirePullRequest": false,
+    "draftPullRequest": false,
+    "commitMessage": "AIFRAMEWORK-PUBLISH-LOCAL-001: local validation",
+    "prTitle": "AIFRAMEWORK-PUBLISH-LOCAL-001: local validation",
+    "prBodyPath": "docs/ai-execution-framework/templates/publish-report.template.md"
+  },
+  "handoffQuestions": [
+    "Should local-only tasks be excluded from remote publishing metrics?"
+  ]
+}

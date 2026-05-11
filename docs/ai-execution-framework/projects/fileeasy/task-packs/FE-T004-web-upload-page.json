@@ -1,0 +1,85 @@
+{
+  "taskId": "FE-T004",
+  "taskName": "Upload page web flow",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "implementation",
+  "status": "accepted",
+  "ownerRole": "execution-ai",
+  "goal": "Implement the FileEasy upload page flow for login, multi-file upload, progress visibility, resume status feedback, and error messaging using the approved visual and wireframe specs.",
+  "nonGoals": [
+    "Do not implement backend storage logic beyond required integration calls.",
+    "Do not build the full admin page.",
+    "Do not add monitoring or advanced dashboard content."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0",
+    "fileeasy-visual-spec-v1.0",
+    "fileeasy-wireframe-spec-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/web-admin/src",
+    "apps/web-admin/index.html"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-T004-web-upload-page.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-T004-web-upload-page.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T004-pm-checklist.md"
+  ],
+  "forbiddenPaths": [
+    "apps/android-player/src/main/java/com/xplay/player/server/storage",
+    "apps/_deprecated_server",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "upload page implementation",
+    "integration with upload APIs",
+    "verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When a user scans the QR code and opens the upload page, they should see the page before authentication and then complete password validation before uploading."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "When one or more files are uploading, the page should show per-file progress, resumable status, and actionable error feedback."
+    },
+    {
+      "id": "AC-3",
+      "type": "manual",
+      "text": "Visually confirm that the upload page matches the approved FileEasy visual and wireframe guidance and does not look like the legacy Xplay admin UI."
+    }
+  ],
+  "verificationCommands": [
+    "npm --prefix apps/web-admin run build"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "fileeasy",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "FE-T004: FileEasy upload page web flow",
+    "prTitle": "FE-T004: FileEasy upload page web flow",
+    "prBodyPath": "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T004-pm-checklist.md"
+  },
+  "handoffQuestions": [
+    "List only UI or interaction ambiguities that require PM or design decisions."
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "projectId": "fileeasy",
+  "projectName": "FileEasy",
+  "bundleVersion": "v1.0",
+  "bundleStatus": "preflight",
+  "requiredDocumentKinds": [
+    "prd",
+    "design",
+    "workflow"
+  ],
+  "documents": [
+    {
+      "id": "fileeasy-prd-v1.0",
+      "kind": "prd",
+      "version": "v1.0",
+      "status": "final",
+      "path": "docs/FileEasy-PRD-v1.0.md"
+    },
+    {
+      "id": "fileeasy-design-v1.1",
+      "kind": "design",
+      "version": "v1.1",
+      "status": "candidate",
+      "path": "docs/FileEasy-Design-v1.0.md"
+    },
+    {
+      "id": "fileeasy-workflow-v1.0",
+      "kind": "workflow",
+      "version": "v1.0",
+      "status": "final",
+      "path": "docs/FileEasy-AI-Workflow-v1.0.md"
+    }
+  ]
+}

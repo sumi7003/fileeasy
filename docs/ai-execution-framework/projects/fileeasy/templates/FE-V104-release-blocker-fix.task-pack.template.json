@@ -1,0 +1,55 @@
+{
+  "taskId": "FE-V104-<blocker-slug>",
+  "taskName": "Release blocker fix - <short-blocker-name>",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "blocker-fix",
+  "status": "approved",
+  "ownerRole": "execution-ai",
+  "goal": "Fix one bounded FileEasy v1 release blocker identified during FE-V102 or FE-V103, without expanding scope or bundling unrelated cleanup.",
+  "nonGoals": [
+    "Do not expand product scope beyond the approved PRD.",
+    "Do not bundle unrelated refactors or cleanup.",
+    "Do not modify PRD or design documents unless PM explicitly opens a separate doc-change task."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "<replace-with-bounded-file-paths>"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-V104-<blocker-slug>.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-V104-<blocker-slug>.md"
+  ],
+  "forbiddenPaths": [
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md",
+    "apps/_deprecated_server"
+  ],
+  "deliverables": [
+    "blocker fix implementation",
+    "focused verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "<replace with the exact blocked scenario that must change from fail to pass>"
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "<replace with the exact scope-boundary or regression check that must remain true>"
+    }
+  ],
+  "verificationCommands": [
+    "<replace with the minimum commands needed to verify the blocker fix>"
+  ],
+  "handoffQuestions": [
+    "List only remaining blocker-level risks that still require PM review after this fix."
+  ]
+}

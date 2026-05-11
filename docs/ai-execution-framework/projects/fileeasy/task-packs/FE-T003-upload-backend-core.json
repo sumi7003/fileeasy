@@ -1,0 +1,85 @@
+{
+  "taskId": "FE-T003",
+  "taskName": "Chunk upload backend and resumable session core",
+  "projectId": "fileeasy",
+  "projectBundlePath": "docs/ai-execution-framework/projects/fileeasy/project-bundle.json",
+  "stage": "implementation",
+  "status": "accepted",
+  "ownerRole": "execution-ai",
+  "goal": "Implement the backend core for allowlisted file upload, resumable chunk sessions, 4GB init validation, same-name auto-renaming on complete, and persistent upload state tracking.",
+  "nonGoals": [
+    "Do not redesign homepage UI.",
+    "Do not build the full admin page.",
+    "Do not add unsupported file types beyond the approved whitelist."
+  ],
+  "documentRefs": [
+    "fileeasy-prd-v1.0",
+    "fileeasy-design-v1.2",
+    "fileeasy-workflow-v1.0"
+  ],
+  "allowedPaths": [
+    "apps/android-player/src/main/java/com/xplay/player/server/LocalServerService.kt",
+    "apps/android-player/src/main/java/com/xplay/player/server/storage",
+    "apps/android-player/src/main/java/com/xplay/player/utils",
+    "apps/android-player/src/main/AndroidManifest.xml"
+  ],
+  "controlPaths": [
+    "docs/ai-execution-framework/projects/fileeasy/task-packs/FE-T003-upload-backend-core.json",
+    "docs/ai-execution-framework/projects/fileeasy/prompts/FE-T003-upload-backend-core.md",
+    "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T003-pm-checklist.md"
+  ],
+  "forbiddenPaths": [
+    "apps/web-admin",
+    "apps/_deprecated_server",
+    "docs/FileEasy-PRD-v1.0.md",
+    "docs/FileEasy-Design-v1.0.md"
+  ],
+  "deliverables": [
+    "upload session backend",
+    "storage and metadata changes",
+    "verification notes",
+    "delivery-report"
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "AC-1",
+      "type": "scenario",
+      "text": "When a file larger than 4GB is initialized for upload, the backend should reject it with the fixed size-limit error."
+    },
+    {
+      "id": "AC-2",
+      "type": "scenario",
+      "text": "When an upload is interrupted and resumed, the backend should report uploadedChunkIndexes and missingChunkIndexes accurately enough for the client to continue."
+    },
+    {
+      "id": "AC-3",
+      "type": "scenario",
+      "text": "When a newly completed file conflicts with an existing display name, the backend should preserve the old file and finalize the new file with an auto-renamed safe name."
+    }
+  ],
+  "verificationCommands": [
+    "GRADLE_USER_HOME=.gradle-home ./gradlew compileFileeasyDebugKotlin"
+  ],
+  "publishPolicy": {
+    "enabled": true,
+    "mode": "ai-assisted",
+    "remoteName": "origin",
+    "branchName": "fileeasy",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ],
+    "autoPushAfterAcceptance": false,
+    "blockOnOutOfScopeChanges": false,
+    "requireAcceptedStatus": true,
+    "requirePullRequest": true,
+    "draftPullRequest": true,
+    "commitMessage": "FE-T003: FileEasy chunk upload backend and resumable core",
+    "prTitle": "FE-T003: FileEasy chunk upload backend and resumable core",
+    "prBodyPath": "docs/ai-execution-framework/projects/fileeasy/acceptance/FE-T003-pm-checklist.md"
+  },
+  "handoffQuestions": [
+    "List only unresolved backend edge cases that require design clarification."
+  ]
+}
