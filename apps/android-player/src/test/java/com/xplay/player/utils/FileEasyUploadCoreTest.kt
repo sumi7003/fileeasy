@@ -49,6 +49,19 @@ class FileEasyUploadCoreTest {
     }
 
     @Test
+    fun `accepts apk files as archive uploads`() {
+        val validation = FileEasyUploadCore.validateUploadInit(
+            fileName = "release.apk",
+            fileSize = 1024L,
+            mimeType = "application/vnd.android.package-archive"
+        )
+
+        assertEquals("release.apk", validation.normalizedFileName)
+        assertEquals("apk", validation.extension)
+        assertEquals("archive", validation.category)
+    }
+
+    @Test
     fun `auto renames same-name file without overwriting existing file`() {
         val existingNames = mutableSetOf("文件.mp4", "文件(1).mp4")
 

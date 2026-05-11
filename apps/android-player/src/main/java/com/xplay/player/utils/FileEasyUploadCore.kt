@@ -27,7 +27,7 @@ object FileEasyUploadCore {
             "jpg", "jpeg", "png", "gif", "webp" -> "image"
             "mp4", "mov" -> "video"
             "mp3", "wav", "m4a" -> "audio"
-            "zip" -> "archive"
+            "zip", "apk" -> "archive"
             else -> null
         }
     }
@@ -55,6 +55,7 @@ object FileEasyUploadCore {
             normalized == "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> "document"
             normalized == "application/zip" -> "archive"
             normalized == "application/x-zip-compressed" -> "archive"
+            normalized == "application/vnd.android.package-archive" -> "archive"
             else -> null
         }
     }

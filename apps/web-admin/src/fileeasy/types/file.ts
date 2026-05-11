@@ -1,4 +1,4 @@
-export type FileKind = 'PDF' | '视频' | '图片' | '音频' | 'ZIP' | '文档';
+export type FileKind = 'PDF' | '视频' | '图片' | '音频' | 'ZIP' | 'APK' | '文档';
 
 export type FolderKey = 'all' | 'document' | 'video' | 'image' | 'audio' | 'archive';
 

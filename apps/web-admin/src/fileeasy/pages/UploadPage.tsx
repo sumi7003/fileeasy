@@ -22,6 +22,7 @@ const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024;
 const SESSION_COOKIE = 'xplay_auth';
 const TASK_STORAGE_KEY = 'fileeasy-upload-sessions-v1';
 const REMEMBER_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const UNSUPPORTED_FILE_TYPE_MESSAGE = '当前文件类型暂不支持上传。';
 
 const SUPPORTED_EXTENSIONS = [
   'pdf',
@@ -43,9 +44,10 @@ const SUPPORTED_EXTENSIONS = [
   'wav',
   'm4a',
   'zip',
+  'apk',
 ] as const;
 
-const SUPPORTED_EXTENSION_BADGES = ['PDF', 'JPG', 'MP4', 'DOC', 'ZIP', '+ 更多'];
+const SUPPORTED_EXTENSION_BADGES = ['PDF', 'JPG', 'MP4', 'DOC', 'APK', '+ 更多'];
 const FILE_PICKER_ACCEPT = '*/*';
 
 type ServiceStatus = 'checking' | 'ready' | 'unavailable';
@@ -60,6 +62,8 @@ type SpeedSample = {
   bytes: number;
   time: number;
 };
+
+type UploadPreparationResult = 'ready' | 'skipped-unsupported' | 'failed';
 
 const getCookieValue = (name: string) => {
   if (typeof document === 'undefined') return '';
@@ -189,6 +193,15 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 
 const isUnauthorizedError = (error: unknown) =>
   axios.isAxiosError(error) && error.response?.status === 401;
+
+const isUnsupportedFileTypeMessage = (message: string) =>
+  message === UNSUPPORTED_FILE_TYPE_MESSAGE || message.includes('文件类型不在 FileEasy v1 支持范围内');
+
+const formatSkippedFileMessage = (fileNames: string[]) => {
+  const visibleNames = fileNames.slice(0, 3).join('、');
+  const remainingCount = fileNames.length - 3;
+  return `已跳过 ${fileNames.length} 个不支持的文件：${visibleNames}${remainingCount > 0 ? ` 等 ${remainingCount} 个` : ''}。`;
+};
 
 const loadStoredTasks = (): UploadTask[] => {
   if (typeof window === 'undefined') return [];
@@ -495,9 +508,9 @@ const UploadPage: React.FC = () => {
     }
   };
 
-  const ensureUploadSession = async (task: UploadTask) => {
-    if (!task.file || task.needsFileReselect) return false;
-    if (task.uploadId) return true;
+  const ensureUploadSession = async (task: UploadTask): Promise<UploadPreparationResult> => {
+    if (!task.file || task.needsFileReselect) return 'failed';
+    if (task.uploadId) return 'ready';
 
     const totalChunks = task.totalChunks || Math.max(1, Math.ceil(task.file.size / CHUNK_SIZE));
     updateTask(task.id, (current) => ({
@@ -533,7 +546,7 @@ const UploadPage: React.FC = () => {
         needsFileReselect: false,
         lastUpdatedAt: Date.now(),
       }));
-      return true;
+      return 'ready';
     } catch (error) {
       if (isUnauthorizedError(error)) {
         clearSessionCookie();
@@ -542,6 +555,12 @@ const UploadPage: React.FC = () => {
       }
 
       const message = getApiErrorMessage(error, '上传初始化失败，请重试。');
+      if (isUnsupportedFileTypeMessage(message)) {
+        removeTask(task.id);
+        setPageMessage(formatSkippedFileMessage([task.fileName]));
+        return 'skipped-unsupported';
+      }
+
       updateTask(task.id, (current) => ({
         ...current,
         status: 'failed',
@@ -552,7 +571,7 @@ const UploadPage: React.FC = () => {
         progress: 0,
         lastUpdatedAt: Date.now(),
       }));
-      return false;
+      return 'failed';
     }
   };
 
@@ -582,10 +601,11 @@ const UploadPage: React.FC = () => {
     if (!nextFiles.length) return;
 
     const nextTasks: UploadTask[] = [];
+    const skippedUnsupportedFileNames: string[] = [];
     nextFiles.forEach((file) => {
       const extension = getFileExtension(file.name);
       if (!SUPPORTED_EXTENSIONS.includes(extension as (typeof SUPPORTED_EXTENSIONS)[number])) {
-        addImmediateErrorTask(file.name, file.size, '当前文件类型暂不支持上传。');
+        skippedUnsupportedFileNames.push(file.name);
         return;
       }
 
@@ -639,6 +659,11 @@ const UploadPage: React.FC = () => {
 
     if (nextTasks.length) {
       setTasks((current) => [...current, ...nextTasks]);
+    }
+
+    if (skippedUnsupportedFileNames.length) {
+      setPageMessage(formatSkippedFileMessage(skippedUnsupportedFileNames));
+    } else if (nextTasks.length) {
       setPageMessage('');
     }
   };
@@ -706,7 +731,8 @@ const UploadPage: React.FC = () => {
     speedSampleRef.current = null;
 
     const preparedResults = await Promise.all(readyTasks.map((task) => ensureUploadSession(task)));
-    const preparedCount = preparedResults.filter(Boolean).length;
+    const preparedCount = preparedResults.filter((result) => result === 'ready').length;
+    const skippedUnsupportedCount = preparedResults.filter((result) => result === 'skipped-unsupported').length;
 
     batchInitializingRef.current = false;
     setBatchInitializing(false);
@@ -714,15 +740,21 @@ const UploadPage: React.FC = () => {
     if (!preparedCount) {
       batchRunningRef.current = false;
       setBatchRunning(false);
-      setPageMessage('没有可上传的有效文件，请检查失败提示后重试。');
+      setPageMessage(
+        skippedUnsupportedCount
+          ? `已跳过 ${skippedUnsupportedCount} 个不支持的文件，没有其他可上传文件。`
+          : '没有可上传的有效文件，请检查失败提示后重试。',
+      );
       return;
     }
 
-    setPageMessage(
-      preparedCount === readyTasks.length
-        ? ''
-        : `已创建 ${preparedCount} 个有效传输任务，其余文件初始化失败。`,
-    );
+    if (preparedCount === readyTasks.length) {
+      setPageMessage('');
+    } else if (skippedUnsupportedCount) {
+      setPageMessage(`已创建 ${preparedCount} 个有效传输任务，并跳过 ${skippedUnsupportedCount} 个不支持的文件。`);
+    } else {
+      setPageMessage(`已创建 ${preparedCount} 个有效传输任务，其余文件初始化失败。`);
+    }
   };
 
   const handlePauseBatch = () => {

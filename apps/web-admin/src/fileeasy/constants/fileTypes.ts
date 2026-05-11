@@ -20,6 +20,7 @@ export const FILEEASY_SUPPORTED_EXTENSIONS = [
   'wav',
   'm4a',
   'zip',
+  'apk',
 ] as const;
 
 export const FILEEASY_FOLDER_LABELS: Record<FolderKey, string> = {
@@ -38,4 +39,5 @@ export const FILEEASY_KIND_TO_FOLDER: Record<FileKind, FolderKey> = {
   图片: 'image',
   音频: 'audio',
   ZIP: 'archive',
+  APK: 'archive',
 };

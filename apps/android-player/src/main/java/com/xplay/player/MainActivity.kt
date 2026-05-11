@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
             ".pptx" to "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             ".txt" to "text/plain",
             ".zip" to "application/zip",
+            ".apk" to "application/vnd.android.package-archive",
             ".jpg" to "image/*",
             ".jpeg" to "image/*",
             ".png" to "image/*",

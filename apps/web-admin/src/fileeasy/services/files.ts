@@ -57,6 +57,7 @@ const inferFolder = (type: string, extension: string): FolderKey => {
 
 const inferKind = (folder: FolderKey, extension: string): FileKind => {
   if (extension === 'pdf') return 'PDF';
+  if (extension === 'apk') return 'APK';
   if (folder === 'image') return '图片';
   if (folder === 'video') return '视频';
   if (folder === 'audio') return '音频';
@@ -98,7 +99,7 @@ const normalizeType = (record: FileEasyManagedFileResponse, extension: string) =
     return rawType;
   }
   if (rawType === 'document') return rawType;
-  if (extension === 'zip') return 'archive';
+  if (extension === 'zip' || extension === 'apk') return 'archive';
   if (extension === 'pdf') return 'document';
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) return 'image';
   if (['mp4', 'mov'].includes(extension)) return 'video';
