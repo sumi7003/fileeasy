@@ -75,6 +75,7 @@ object OtaHttpClient {
             "product" to Build.PRODUCT.orEmpty(),
             "client_type" to context.packageName,
             "rk_version" to readSystemProperty("ro.product.version"),
+            "did" to readSystemProperty("s2.chip.id"),
             "serialno" to readSystemProperty("ro.serialno")
         ).filterValues { it.isNotBlank() }
     }

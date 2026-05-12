@@ -9,7 +9,7 @@ val localEnvProperties = Properties().apply {
 }
 
 val otaBaseUrl = localSigningProperty("XPLAY_OTA_BASE_URL") ?: "http://elike.1daobo.com"
-val otaChannel = localSigningProperty("XPLAY_OTA_CHANNEL") ?: "1001"
+val otaChannel = localSigningProperty("XPLAY_OTA_CHANNEL") ?: "1016"
 
 fun localSigningProperty(name: String): String? {
     return providers.gradleProperty(name).orNull
