@@ -71,6 +71,7 @@ import com.xplay.player.server.LocalStore
 import com.xplay.player.server.HomeRecentFileResponse
 import com.xplay.player.server.HomeUploadTaskResponse
 import com.xplay.player.server.ServiceRuntimeState
+import com.xplay.player.update.AppHttpUpdateController
 import com.xplay.player.utils.LanAccessInfo
 import com.xplay.player.utils.LanAddressSource
 import com.xplay.player.utils.LanAddressResolver
@@ -218,7 +219,13 @@ class MainActivity : ComponentActivity() {
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        
+
+        AppHttpUpdateController.checkVersion2(this) {
+            launchMainContent()
+        }
+    }
+
+    private fun launchMainContent() {
         // 1. 尽早初始化 LocalStore
         com.xplay.player.server.LocalStore.init(this)
         
@@ -629,7 +636,7 @@ fun FileEasyShellScreen() {
             scope.launch(Dispatchers.IO) {
                 val uploads = runCatching { LocalStore.listUploadQueueSessions(limit = 24) }
                     .getOrElse { emptyList() }
-                val files = runCatching { LocalStore.listRecentManagedFiles(limit = 6) }
+                val files = runCatching { LocalStore.listRecentManagedFiles(limit = 4) }
                     .getOrElse { emptyList() }
                 val stat = runCatching { StatFs(context.filesDir.path) }.getOrNull()
                 val total = stat?.let { it.blockSizeLong * it.blockCountLong } ?: 0L
@@ -761,7 +768,7 @@ fun FileEasyShellScreen() {
             )
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
         val contentMaxWidth = if (maxWidth >= 920.dp) 860.dp else maxWidth
         val useWideTopSection = contentMaxWidth >= 700.dp
@@ -774,7 +781,7 @@ fun FileEasyShellScreen() {
         ) {
             Surface(
                 modifier = Modifier.widthIn(max = contentMaxWidth).fillMaxWidth(),
-                shape = RoundedCornerShape(34.dp),
+                shape = RoundedCornerShape(30.dp),
                 color = Color(0xFFF7F3EE),
                 border = BorderStroke(1.dp, Color(0xFFD9D0C7))
             ) {
@@ -783,7 +790,7 @@ fun FileEasyShellScreen() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFF1B1B1B))
-                            .padding(horizontal = 22.dp, vertical = 18.dp),
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -811,8 +818,8 @@ fun FileEasyShellScreen() {
                     }
 
                     Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         if (uploadUrl != null) {
                             when (homeState) {
@@ -845,8 +852,8 @@ fun FileEasyShellScreen() {
                                                     bitmap = bitmap.asImageBitmap(),
                                                     contentDescription = "易传输上传二维码",
                                                     modifier = Modifier
-                                                        .size(if (useWideTopSection) 320.dp else 260.dp)
-                                                        .padding(if (useWideTopSection) 22.dp else 18.dp)
+                                                        .size(if (useWideTopSection) 280.dp else 224.dp)
+                                                        .padding(if (useWideTopSection) 18.dp else 14.dp)
                                                 )
                                             }
                                         }
@@ -1056,9 +1063,12 @@ fun FileEasyShellScreen() {
                         YiTransferScanIllustrationCard(
                             useWideLayout = useWideTopSection,
                             accessUrl = uploadUrl ?: lanAccessInfo.uploadUrl.orEmpty(),
-                            networkSegment = networkSegmentLabel
+                            networkSegment = networkSegmentLabel,
+                            modifier = Modifier.offset(y = (-8).dp)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(72.dp))
                 }
             }
         }
@@ -1177,20 +1187,22 @@ private fun YiTransferLogoMark(
 private fun YiTransferScanIllustrationCard(
     useWideLayout: Boolean,
     accessUrl: String,
-    networkSegment: String?
+    networkSegment: String?,
+    modifier: Modifier = Modifier
 ) {
-    val maxImageWidth = if (useWideLayout) 300.dp else 220.dp
+    val maxImageWidth = if (useWideLayout) 250.dp else 188.dp
 
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
         color = Color(0xFFFAFDFC),
         border = BorderStroke(1.dp, Color(0xFFDCEAE5))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -1211,7 +1223,7 @@ private fun YiTransferScanIllustrationCard(
                 painter = painterResource(id = R.drawable.yichuanshu_home_transfer),
                 contentDescription = "扫码选择文件上传示意图",
                 modifier = Modifier
-                    .fillMaxWidth(fraction = if (useWideLayout) 0.62f else 0.84f)
+                    .fillMaxWidth(fraction = if (useWideLayout) 0.52f else 0.72f)
                     .widthIn(max = maxImageWidth)
                     .aspectRatio(1448f / 1086f),
                 contentScale = ContentScale.Fit
@@ -1624,33 +1636,33 @@ private fun FileEasyRecentFileRow(file: HomeRecentFileResponse) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             color = file.fileName.toExtensionBadgeColor(),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(12.dp)
         ) {
             Box(
-                modifier = Modifier.size(width = 52.dp, height = 52.dp),
+                modifier = Modifier.size(width = 44.dp, height = 44.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = file.fileName.toExtensionBadgeText(),
                     color = file.fileName.toExtensionTextColor(),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
                 text = file.fileName,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = Color(0xFF262626),
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -1658,7 +1670,7 @@ private fun FileEasyRecentFileRow(file: HomeRecentFileResponse) {
             )
             Text(
                 text = "${formatStorageValue(file.size)}  ·  ${formatRecentTime(file.createdAt)}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFFB0AAA3)
             )
         }

@@ -8,6 +8,9 @@ val localEnvProperties = Properties().apply {
     }
 }
 
+val otaBaseUrl = localSigningProperty("XPLAY_OTA_BASE_URL") ?: "http://elike.1daobo.com"
+val otaChannel = localSigningProperty("XPLAY_OTA_CHANNEL") ?: "1001"
+
 fun localSigningProperty(name: String): String? {
     return providers.gradleProperty(name).orNull
         ?: providers.environmentVariable(name).orNull
@@ -29,8 +32,10 @@ android {
         applicationId = "com.xplay.player"
         minSdk = 24
         targetSdk = 34
-        versionCode = 11
-        versionName = "1.1.3-Build11"
+        versionCode = 12
+        versionName = "1.1.4-Build12"
+        buildConfigField("String", "OTA_BASE_URL", "\"$otaBaseUrl\"")
+        buildConfigField("String", "OTA_CHANNEL", "\"$otaChannel\"")
     }
 
     buildFeatures {
@@ -77,7 +82,7 @@ android {
         create("fileeasy") {
             dimension = "product"
             applicationId = "com.xplay.fileeasy"
-            versionName = "V1.0"
+            versionName = "V1.1"
             buildConfigField("boolean", "IS_FILEEASY", "true")
             buildConfigField("boolean", "PLAYER_FEATURE_ENABLED", "false")
             buildConfigField("String", "PRODUCT_NAME", "\"易传输\"")
